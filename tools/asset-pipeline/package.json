@@ -1,0 +1,18 @@
+{
+  "name": "@master-of-music/asset-pipeline",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/cli.js",
+  "bin": {
+    "mom-assets": "dist/cli.js"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "commander": "^12.1.0",
+    "sharp": "^0.33.5",
+    "zod": "^3.24.1"
+  }
+}

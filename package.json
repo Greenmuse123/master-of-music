@@ -3,12 +3,16 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
+  "workspaces": [
+    "tools/asset-pipeline"
+  ],
   "scripts": {
     "dev": "vite --open",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "lint": "eslint . --ext .ts",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && npm --workspace @master-of-music/asset-pipeline run typecheck",
+    "assets": "vite-node tools/asset-pipeline/src/cli.ts",
     "test": "vitest run",
     "test:run": "vitest run"
   },
