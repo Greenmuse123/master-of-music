@@ -16,6 +16,6 @@ export type AssetProvider = {
   generate(request: GenerateRequest): Promise<GeneratedAsset>;
 };
 
-export function createAssetProvider(provider: 'procedural'): AssetProvider {
+export function createAssetProvider(_provider: 'procedural'): AssetProvider {
   return createProceduralProvider();
 }

@@ -3,6 +3,6 @@ export type ProcessResult = {
   steps: string[];
 };
 
-export async function processAssets(): Promise<ProcessResult> {
-  return { ok: true, steps: [] };
+export function processAssets(): Promise<ProcessResult> {
+  return Promise.resolve({ ok: true, steps: [] });
 }
