@@ -1,0 +1,30 @@
+{
+  "goal": "Implement the input manager with logical action mapping, keyboard + gamepad support, remap persistence, and a clean event interface for scenes. Defaults per docs/03-TECHNICAL_ARCHITECTURE.md section 4.2.",
+  "files": [
+    "src/engine/input/input-manager.ts",
+    "src/engine/input/input-manager.test.ts",
+    "src/engine/input/remap.ts",
+    "src/engine/input/remap.test.ts",
+    "src/engine/input/actions.ts"
+  ],
+  "constraints": [
+    "Actions: up, down, left, right, confirm, cancel, menu, act-1, act-2, act-3, act-4, beat-press.",
+    "Defaults: WASD = directions; J = confirm, K = cancel, Enter = confirm, Escape = menu; Space = beat-press; UIOP = act-1..act-4.",
+    "Gamepad: standard mapping; left-stick + D-pad = directions; A = confirm, B = cancel, Start = menu; X = beat-press; Y = act-2; LB/RB = act-3/act-4.",
+    "Repeat behavior: directions emit `held` events with configurable initial-delay (default 250ms) and repeat-rate (default 60ms); confirm/cancel/menu/act-* are press-only by default.",
+    "Remap persists to settings storage; getters return the current mapping.",
+    "API surface: `pressed(action)`, `held(action)`, `released(action)`, `onAction(cb)`, `setBinding(action, binding)`, `getBindings()`, `update(now)`."
+  ],
+  "acceptance": [
+    "100% coverage on remap.ts; ≥85% on input-manager.ts.",
+    "Test verifies key-down -> action-pressed; key-up -> action-released; repeat rate matches config within 5ms tolerance.",
+    "Gamepad simulation test verifies A button -> confirm.",
+    "Remap test verifies binding override is reflected in `pressed()` immediately."
+  ],
+  "verification": [
+    "bash -c 'npm run lint --silent && npm run typecheck --silent && npm run test --silent -- src/engine/input'"
+  ],
+  "sandbox": "read-write",
+  "invokedBy": "master-of-music orchestrator (Phase 1)",
+  "timeoutMs": 600000
+}

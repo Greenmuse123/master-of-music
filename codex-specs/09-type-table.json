@@ -1,0 +1,27 @@
+{
+  "goal": "Implement the genre / type matchup table from docs/04-COMBAT_SYSTEM.md section 3.2 as a lookup function with full test coverage.",
+  "files": [
+    "src/game/combat/type-table.ts",
+    "src/game/combat/type-table.test.ts",
+    "src/game/combat/genres.ts"
+  ],
+  "constraints": [
+    "Genres enum: jazz, blues, classical, rock, hiphop, electronic, folk, discord.",
+    "API: `getMatchupMultiplier(attacker: Genre, defender: Genre): number` returns one of 0.5, 0.66, 1.0, 1.5, 2.0.",
+    "Table data lives in `type-table.ts` as a frozen const 2D record.",
+    "Discord defender: defender of `discord` returns 0.5 for non-discord attackers (Discord is super-weak to nothing); Discord attacker: returns 2.0 against any non-discord defender; `discord -> discord` = 1.0.",
+    "Non-discord matchups per the table: s=1.5, w=0.66, n=1.0.",
+    "No runtime mutation; no side effects."
+  ],
+  "acceptance": [
+    "Test enumerates every (attacker, defender) pair and asserts the documented multiplier.",
+    "100% coverage.",
+    "Snapshot test of the full table for future change detection."
+  ],
+  "verification": [
+    "bash -c 'npm run lint --silent && npm run typecheck --silent && npm run test --silent -- src/game/combat/type-table'"
+  ],
+  "sandbox": "read-write",
+  "invokedBy": "master-of-music orchestrator (Phase 2)",
+  "timeoutMs": 300000
+}

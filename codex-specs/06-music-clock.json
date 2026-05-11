@@ -1,0 +1,28 @@
+{
+  "goal": "Implement MusicClock per docs/08-AUDIO_DESIGN.md section 2: BPM-anchored beat clock with drift correction against Howler position, beat/bar/phase event emission, and ≤2ms anchor accuracy.",
+  "files": [
+    "src/engine/audio/music-clock.ts",
+    "src/engine/audio/music-clock.test.ts",
+    "src/engine/audio/types.ts"
+  ],
+  "constraints": [
+    "API: `start(soundId, bpm, anchorMs?)`, `beat()`, `beatPhase()`, `msUntilBeat(target)`, `on(event, cb)`, `reanchor(seekMs, bpm)`, `stop()`.",
+    "Events: 'beat' (fires once per beat boundary), 'bar' (every 4 beats by default; configurable), 'phase' (fires every animation frame the clock is updated).",
+    "Drift correction: reanchor() recomputes the clock's anchor so the next beat() value matches the externally-provided seekMs without going backwards.",
+    "beat() must be monotonic non-decreasing under all inputs except a fresh start().",
+    "Implementation must not depend on Howler at the module level — accept a position-getter function in the constructor for testability."
+  ],
+  "acceptance": [
+    "100% coverage on music-clock.ts.",
+    "Test: anchor accuracy ≤2ms when fed a perfect clock.",
+    "Test: 50ms jitter recovers within 500ms.",
+    "Test: beat() monotonicity across 10s simulation.",
+    "Test: msUntilBeat() returns correct value for sub-beat queries."
+  ],
+  "verification": [
+    "bash -c 'npm run lint --silent && npm run typecheck --silent && npm run test --silent -- src/engine/audio'"
+  ],
+  "sandbox": "read-write",
+  "invokedBy": "master-of-music orchestrator (Phase 1)",
+  "timeoutMs": 600000
+}

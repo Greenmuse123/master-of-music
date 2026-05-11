@@ -1,0 +1,31 @@
+node_modules/
+dist/
+build/
+.cache/
+.vite/
+coverage/
+*.log
+.DS_Store
+Thumbs.db
+
+# Local env / secrets
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/*
+!.vscode/extensions.json
+!.vscode/launch.json
+!.vscode/settings.recommended.json
+.idea/
+
+# Game-specific
+src/assets/raw/            # raw generator inputs, not committed
+src/assets/generated/      # produced by the pipeline, regenerable
+saves/                     # local playtest saves
+playthrough-recordings/
+
+# OS / tools
+*.tmp
+*.swp

@@ -1,0 +1,42 @@
+{
+  "goal": "Scaffold the asset pipeline tooling at tools/asset-pipeline/ per docs/05-ASSET_PIPELINE.md section 3. Empty stub modules with named exports + tests + a runnable CLI. No real provider integrations yet; that comes in spec 06.",
+  "files": [
+    "tools/asset-pipeline/package.json",
+    "tools/asset-pipeline/tsconfig.json",
+    "tools/asset-pipeline/src/cli.ts",
+    "tools/asset-pipeline/src/config.schema.ts",
+    "tools/asset-pipeline/src/config.schema.test.ts",
+    "tools/asset-pipeline/src/generate/client.ts",
+    "tools/asset-pipeline/src/generate/providers/procedural.ts",
+    "tools/asset-pipeline/src/generate/providers/procedural.test.ts",
+    "tools/asset-pipeline/src/process/index.ts",
+    "tools/asset-pipeline/src/pack/manifest.ts",
+    "tools/asset-pipeline/src/pack/manifest.test.ts",
+    "tools/asset-pipeline/src/validate/palette-check.ts",
+    "tools/asset-pipeline/src/validate/palette-check.test.ts",
+    "tools/asset-pipeline/jobs/_palettes/jazz.json",
+    "tools/asset-pipeline/README.md"
+  ],
+  "constraints": [
+    "Use the project's existing TypeScript setup; treat tools/asset-pipeline as a workspace package.",
+    "Allowed deps: zod, sharp, commander. Nothing else without an ADR.",
+    "Config schema validates the job shape declared in docs/05-ASSET_PIPELINE.md section 3.",
+    "CLI exposes `npm run assets -- <subcommand>` from the root package; subcommands stubbed: gen, process, pack, validate, manifest.",
+    "Procedural provider returns a synthesized solid-color PNG buffer for now (placeholder).",
+    "palette-check returns {ok: true} only if every pixel is in the loaded palette JSON.",
+    "README explains the pipeline at the level of one developer reading it for the first time."
+  ],
+  "acceptance": [
+    "`npm install` at root installs the workspace.",
+    "`npm run assets -- --help` lists 5 subcommands.",
+    "`npm run assets -- validate jobs/_palettes/jazz.json` returns ok.",
+    "Unit tests cover: schema accept/reject, procedural-provider returns valid PNG header, palette-check accepts a one-color sample, manifest builder produces the documented JSON shape.",
+    "All tests pass via root `npm run test`."
+  ],
+  "verification": [
+    "bash -c 'npm install --silent && npm run typecheck --silent && npm run test --silent'"
+  ],
+  "sandbox": "read-write",
+  "invokedBy": "master-of-music orchestrator (Phase 0)",
+  "timeoutMs": 600000
+}

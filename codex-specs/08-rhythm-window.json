@@ -1,0 +1,28 @@
+{
+  "goal": "Implement the pure function `evaluateRhythmHit(nowMs, targetMs, focus)` that returns one of {critical, perfect, good, off, miss} per the windows in docs/04-COMBAT_SYSTEM.md section 3.3, applying the focus widening rule and returning damage/RES modifiers.",
+  "files": [
+    "src/game/combat/rhythm-window.ts",
+    "src/game/combat/rhythm-window.test.ts"
+  ],
+  "constraints": [
+    "Pure function. No imports beyond local types.",
+    "Signature: `evaluateRhythmHit(nowMs: number, targetMs: number, focus: number): RhythmResult`.",
+    "RhythmResult = { quality: RhythmQuality, damageMul: number, resReturn: number, deltaMs: number }.",
+    "Windows (delta = |nowMs - targetMs|): critical ≤40ms, perfect ≤80ms, good ≤160ms, off ≤300ms, else miss.",
+    "Focus widening: each window's tolerance is multiplied by (1 + min(focus,100)/200), max +50%.",
+    "Damage and RES modifiers exactly as in the table.",
+    "Document the function with a JSDoc reference to docs/04-COMBAT_SYSTEM.md."
+  ],
+  "acceptance": [
+    "Test covers every boundary (±1ms each), every quality level, focus=0 and focus=100 cases.",
+    "Test verifies focus=100 expands the critical window to ≤60ms.",
+    "100% statement and branch coverage.",
+    "No mutation, no external state."
+  ],
+  "verification": [
+    "bash -c 'npm run lint --silent && npm run typecheck --silent && npm run test --silent -- src/game/combat/rhythm-window'"
+  ],
+  "sandbox": "read-write",
+  "invokedBy": "master-of-music orchestrator (Phase 2)",
+  "timeoutMs": 300000
+}

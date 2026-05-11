@@ -1,0 +1,28 @@
+{
+  "goal": "Add a GitHub Actions workflow that runs lint + typecheck + test + build on every push and PR. Cache node_modules. Single OS (ubuntu-latest), Node 22 LTS.",
+  "files": [
+    ".github/workflows/ci.yml",
+    ".github/CODEOWNERS",
+    ".github/pull_request_template.md"
+  ],
+  "constraints": [
+    "Workflow uses actions/checkout@v4 and actions/setup-node@v4.",
+    "Steps run sequentially: install -> lint -> typecheck -> test -> build.",
+    "Cache key: hash of package-lock.json.",
+    "PR template asks for: summary, screenshots if UI, test plan, ADR link if architectural.",
+    "CODEOWNERS sets root owner to the repo owner (placeholder login `@owner`).",
+    "Do not add any external action besides @v4 ones above."
+  ],
+  "acceptance": [
+    "`.github/workflows/ci.yml` is valid YAML and references only the constrained actions.",
+    "Local act (or `actionlint` if available) passes.",
+    "PR template is non-trivial: at least 4 sections.",
+    "CODEOWNERS has at least one entry."
+  ],
+  "verification": [
+    "bash -c 'test -f .github/workflows/ci.yml && test -f .github/CODEOWNERS && test -f .github/pull_request_template.md && python -c \"import yaml,sys; yaml.safe_load(open(\\\".github/workflows/ci.yml\\\"))\"'"
+  ],
+  "sandbox": "read-write",
+  "invokedBy": "master-of-music orchestrator (Phase 0)",
+  "timeoutMs": 300000
+}

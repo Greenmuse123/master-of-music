@@ -1,0 +1,38 @@
+{
+  "goal": "Implement the Canvas2D renderer core: layered draw queue, sprite + sprite-sheet + animation player, and a camera. Pixel-perfect at 480x270 logical resolution. Documented in docs/03-TECHNICAL_ARCHITECTURE.md section 3 (engine/render/).",
+  "files": [
+    "src/engine/render/renderer.ts",
+    "src/engine/render/renderer.test.ts",
+    "src/engine/render/sprite.ts",
+    "src/engine/render/sprite.test.ts",
+    "src/engine/render/atlas.ts",
+    "src/engine/render/atlas.test.ts",
+    "src/engine/render/animation.ts",
+    "src/engine/render/animation.test.ts",
+    "src/engine/render/camera.ts",
+    "src/engine/render/camera.test.ts",
+    "src/engine/render/layers.ts"
+  ],
+  "constraints": [
+    "Renderer exposes: `clear()`, `drawSprite(sprite, x, y, layer)`, `flush()`. Draw calls are queued by layer and emitted in layer order during `flush()`.",
+    "Layers (ordered): bg, world, entities, fx, ui, debug.",
+    "Atlas loader parses the project's JSON atlas format: `{ image: string, frames: { [name]: {x,y,w,h,duration?} } }`.",
+    "AnimationPlayer advances frames based on a tick in seconds; supports loop, once, ping-pong; emits a `complete` callback for non-loop.",
+    "Camera follows a world-space target with optional dead-zone; supports shake (frequency + decay).",
+    "All draw positions snapped to integer pixels.",
+    "Test environment: jsdom + a stubbed CanvasRenderingContext2D that records calls."
+  ],
+  "acceptance": [
+    "100% statement coverage on `animation.ts` and `camera.ts`.",
+    "≥80% coverage on `renderer.ts`, `sprite.ts`, `atlas.ts`.",
+    "Renderer `flush()` produces draw calls in correct layer order in a stubbed-canvas test.",
+    "Animation `ping-pong` test verifies frame sequence over 1.5 cycles.",
+    "Camera shake test verifies decay reaches < 0.1 within the configured duration."
+  ],
+  "verification": [
+    "bash -c 'npm run lint --silent && npm run typecheck --silent && npm run test --silent -- src/engine/render'"
+  ],
+  "sandbox": "read-write",
+  "invokedBy": "master-of-music orchestrator (Phase 1)",
+  "timeoutMs": 900000
+}

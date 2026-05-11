@@ -1,0 +1,43 @@
+{
+  "goal": "Initialize the Master of Music project as a Vite + TypeScript + Vitest + ESLint + Prettier skeleton with a Canvas2D bootstrap that opens a 480x270 canvas scaled to fit the viewport with nearest-neighbor scaling. Establish the directory structure declared in docs/03-TECHNICAL_ARCHITECTURE.md section 3.",
+  "files": [
+    "package.json",
+    "tsconfig.json",
+    "vite.config.ts",
+    "vitest.config.ts",
+    ".eslintrc.cjs",
+    ".prettierrc",
+    "index.html",
+    "src/main.ts",
+    "src/game.ts",
+    "src/config/constants.ts",
+    "src/engine/render/renderer.ts",
+    "src/engine/render/renderer.test.ts",
+    "src/engine/scene/scene.ts",
+    "src/engine/scene/scene-stack.ts",
+    "src/engine/scene/scene-stack.test.ts",
+    "src/scenes/title-scene.ts"
+  ],
+  "constraints": [
+    "TypeScript 5.x strict mode (all strict flags on, including noUncheckedIndexedAccess).",
+    "Do not introduce a game framework (no Phaser, PixiJS, Excalibur).",
+    "Canvas2D only; imageSmoothingEnabled = false; integer-only positioning.",
+    "Renderer must keep aspect ratio 16:9 and use CSS letterboxing at non-16:9 viewports.",
+    "Vitest configured with jsdom environment and a stubbed CanvasRenderingContext2D for unit tests.",
+    "No external dependencies beyond: vite, vitest, typescript, eslint, @typescript-eslint/*, prettier, @types/node, jsdom."
+  ],
+  "acceptance": [
+    "`npm install` succeeds.",
+    "`npm run dev` opens a window showing a black 480x270 canvas centered with letterboxing.",
+    "`npm run lint` exits 0.",
+    "`npm run typecheck` (alias for tsc --noEmit) exits 0.",
+    "`npm run test` exits 0 with at least 3 passing tests (renderer instantiation, scene-stack push/pop, title-scene enter).",
+    "`npm run build` produces dist/ with no errors."
+  ],
+  "verification": [
+    "bash -c 'npm install --silent && npm run lint --silent && npm run typecheck --silent && npm run test --silent && npm run build --silent'"
+  ],
+  "sandbox": "read-write",
+  "invokedBy": "master-of-music orchestrator (Phase 0)",
+  "timeoutMs": 900000
+}
