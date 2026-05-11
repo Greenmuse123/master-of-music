@@ -15,7 +15,9 @@
     "tools/asset-pipeline/src/validate/palette-check.ts",
     "tools/asset-pipeline/src/validate/palette-check.test.ts",
     "tools/asset-pipeline/jobs/_palettes/jazz.json",
-    "tools/asset-pipeline/README.md"
+    "tools/asset-pipeline/README.md",
+    "package.json",
+    "package-lock.json"
   ],
   "constraints": [
     "Use the project's existing TypeScript setup; treat tools/asset-pipeline as a workspace package.",
@@ -24,7 +26,9 @@
     "CLI exposes `npm run assets -- <subcommand>` from the root package; subcommands stubbed: gen, process, pack, validate, manifest.",
     "Procedural provider returns a synthesized solid-color PNG buffer for now (placeholder).",
     "palette-check returns {ok: true} only if every pixel is in the loaded palette JSON.",
-    "README explains the pipeline at the level of one developer reading it for the first time."
+    "README explains the pipeline at the level of one developer reading it for the first time.",
+    "Modify the root package.json to: (a) add a `workspaces` field including `tools/asset-pipeline`; (b) add an `assets` script that delegates to the tool's CLI (e.g., `node tools/asset-pipeline/dist/cli.js` or `tsx tools/asset-pipeline/src/cli.ts`).",
+    "Run `npm install` at root as part of execution so the workspace is hoisted before reporting completion. The wrapper's verification[] does not run install; you must."
   ],
   "acceptance": [
     "`npm install` at root installs the workspace.",
@@ -34,9 +38,10 @@
     "All tests pass via root `npm run test`."
   ],
   "verification": [
-    "bash -c 'npm install --silent && npm run typecheck --silent && npm run test --silent'"
+    "npm run typecheck --silent",
+    "npm run test --silent"
   ],
-  "sandbox": "read-write",
+  "sandbox": "workspace-write",
   "invokedBy": "master-of-music orchestrator (Phase 0)",
   "timeoutMs": 600000
 }

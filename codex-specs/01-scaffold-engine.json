@@ -16,7 +16,8 @@
     "src/engine/scene/scene.ts",
     "src/engine/scene/scene-stack.ts",
     "src/engine/scene/scene-stack.test.ts",
-    "src/scenes/title-scene.ts"
+    "src/scenes/title-scene.ts",
+    "package-lock.json"
   ],
   "constraints": [
     "TypeScript 5.x strict mode (all strict flags on, including noUncheckedIndexedAccess).",
@@ -24,7 +25,10 @@
     "Canvas2D only; imageSmoothingEnabled = false; integer-only positioning.",
     "Renderer must keep aspect ratio 16:9 and use CSS letterboxing at non-16:9 viewports.",
     "Vitest configured with jsdom environment and a stubbed CanvasRenderingContext2D for unit tests.",
-    "No external dependencies beyond: vite, vitest, typescript, eslint, @typescript-eslint/*, prettier, @types/node, jsdom."
+    "No external dependencies beyond: vite, vitest, typescript, eslint, @typescript-eslint/*, prettier, @types/node, jsdom.",
+    "Run `npm install` as part of execution before reporting completion. The wrapper's verification[] does not run install; you must, so that the npm scripts in verification are runnable.",
+    "package.json must define scripts: dev, build, preview, lint, typecheck (alias for `tsc --noEmit`), test, test:run.",
+    "title-scene's enter() test can live inside src/engine/render/renderer.test.ts or src/engine/scene/scene-stack.test.ts; a separate src/scenes/title-scene.test.ts is not required as long as the total passing-test count is at least 3 across the listed test files."
   ],
   "acceptance": [
     "`npm install` succeeds.",
@@ -35,9 +39,12 @@
     "`npm run build` produces dist/ with no errors."
   ],
   "verification": [
-    "bash -c 'npm install --silent && npm run lint --silent && npm run typecheck --silent && npm run test --silent && npm run build --silent'"
+    "npm run lint --silent",
+    "npm run typecheck --silent",
+    "npm run test --silent",
+    "npm run build --silent"
   ],
-  "sandbox": "read-write",
+  "sandbox": "workspace-write",
   "invokedBy": "master-of-music orchestrator (Phase 0)",
   "timeoutMs": 900000
 }
