@@ -50,6 +50,15 @@ export class InputManager {
   private gamepadAxes: readonly number[] = [];
   private readonly justPressed = new Set<InputAction>();
   private readonly justReleased = new Set<InputAction>();
+  /**
+   * Carries handler-driven transitions across the next `update()` call so the
+   * scene running INSIDE that update gets a chance to read them. Without this,
+   * the rAF loop's `input.update(now)` would clear `justPressed`/`justReleased`
+   * before `scene.update(step)` ran, eating every keydown that fired between
+   * frames. See input-manager.test.ts "emits action pressed on key-down ...".
+   */
+  private readonly pendingJustPressed = new Set<InputAction>();
+  private readonly pendingJustReleased = new Set<InputAction>();
   private lastUpdateNow = 0;
   private readonly nextRepeatAt = new Map<InputAction, number>();
   private readonly previousActions = new Set<InputAction>();
@@ -106,6 +115,17 @@ export class InputManager {
     this.lastUpdateNow = now;
     this.justPressed.clear();
     this.justReleased.clear();
+    // Re-instate transitions that fired via handler events since the last
+    // update(). recomputeActions below cannot detect them again because the
+    // handler already advanced `previousActions`.
+    for (const action of this.pendingJustPressed) {
+      this.justPressed.add(action);
+    }
+    for (const action of this.pendingJustReleased) {
+      this.justReleased.add(action);
+    }
+    this.pendingJustPressed.clear();
+    this.pendingJustReleased.clear();
     this.repeatedThisFrame.clear();
     this.pollGamepads();
     this.recomputeActions(now);
@@ -173,12 +193,14 @@ export class InputManager {
 
       if (!wasActive && isActive) {
         this.justPressed.add(action);
+        this.pendingJustPressed.add(action);
         this.nextRepeatAt.set(action, now + this.initialDelayMs);
         this.emit({ action, phase: 'pressed', source: source ?? this.sourceForAction(action), timestamp: now });
       }
 
       if (wasActive && !isActive) {
         this.justReleased.add(action);
+        this.pendingJustReleased.add(action);
         this.nextRepeatAt.delete(action);
         this.emit({ action, phase: 'released', source: source ?? this.sourceForAction(action), timestamp: now });
       }

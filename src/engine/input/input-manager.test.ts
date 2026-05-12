@@ -135,4 +135,49 @@ describe('InputManager', () => {
 
     manager.dispose();
   });
+
+  it('survives a keydown that fires between rAF ticks — pressed() is true on the FIRST update after the press', () => {
+    // Regression for the bug Elias hit walking the Phase-3 golden path:
+    // handleKeyDown advanced `previousActions`, so when input.update(now) ran
+    // BEFORE scene.update(step) in Game.#tick, recomputeActions saw no
+    // transition and the cleared justPressed stayed empty. The fix carries
+    // handler-detected transitions across the next update() via pending sets.
+    const manager = new InputManager({ storage: createStorage(), target: window });
+
+    // 1. User presses J between rAF ticks (no update() between the two).
+    dispatchKeyboard('keydown', 'KeyJ');
+
+    // 2. Game.#tick fires. input.update(now) runs FIRST.
+    manager.update(16);
+
+    // 3. scene.update(step) runs SECOND and reads pressed(). Must see true.
+    expect(manager.pressed('confirm')).toBe(true);
+
+    // 4. Next frame. Key still held. pressed() must be false (only fires once).
+    manager.update(32);
+    expect(manager.pressed('confirm')).toBe(false);
+    expect(manager.held('confirm')).toBe(true);
+
+    manager.dispose();
+  });
+
+  it('survives a keyup between rAF ticks — released() is true on the FIRST update after the release', () => {
+    const manager = new InputManager({ storage: createStorage(), target: window });
+
+    dispatchKeyboard('keydown', 'KeyJ');
+    manager.update(16);
+    // Consume the initial pressed event so we are testing the release path.
+    manager.pressed('confirm');
+
+    dispatchKeyboard('keyup', 'KeyJ');
+    manager.update(32);
+
+    expect(manager.released('confirm')).toBe(true);
+    expect(manager.held('confirm')).toBe(false);
+
+    manager.update(48);
+    expect(manager.released('confirm')).toBe(false);
+
+    manager.dispose();
+  });
 });
