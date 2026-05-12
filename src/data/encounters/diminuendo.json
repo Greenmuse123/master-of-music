@@ -1,0 +1,32 @@
+{
+  "mode": "boss",
+  "enemyId": "diminuendo",
+  "bpm": 90,
+  "soundId": "boss-diminuendo",
+  "bossScript": {
+    "id": "diminuendo",
+    "finalDefeatBeats": 8,
+    "phases": [
+      {
+        "id": "lullaby",
+        "patternIntroBeats": 4,
+        "patternBeats": [0, 4],
+        "vulnerableBeats": 8
+      },
+      {
+        "id": "dirge",
+        "patternIntroBeats": 6,
+        "patternBeats": [0, 4, 6],
+        "vulnerableBeats": 6,
+        "hpThreshold": 0.66
+      },
+      {
+        "id": "silence",
+        "patternIntroBeats": 8,
+        "patternBeats": [0, 4, 6, 8],
+        "vulnerableBeats": 4,
+        "hpThreshold": 0.33
+      }
+    ]
+  }
+}
