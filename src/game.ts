@@ -9,14 +9,18 @@ import { mulberry32, type Prng } from './engine/util/rng';
 import { BattleScene } from './game/combat/battle-scene';
 import { Genre } from './game/combat/genres';
 import type { Combatant, EncounterSpec, PartyMember } from './game/combat/types';
-import { OverworldScene } from './game/overworld/overworld-scene';
+import { makeBayouMookEncounter } from './game/encounters/bayou-mook';
+import { makeDiminuendoEncounter } from './game/encounters/diminuendo';
+import { makeBayouScene } from './game/overworld/regions/bayou';
+import { makeJazzCityScene } from './game/overworld/regions/jazz-city';
+import type { RegionId } from './game/overworld/types';
 import { GameOverScene } from './scenes/game-over-scene';
 import { SaveSelectScene } from './scenes/save-select-scene';
 import { SceneRouter, type SceneId } from './scenes/scene-router';
 import { TitleScene } from './scenes/title-scene';
 import { Textbox } from './ui/textbox';
 
-const PLACEHOLDER_BATTLE_PROMPT = 'A hollow streetlamp blocks your path. Press Beat on the beat!';
+const PLACEHOLDER_BATTLE_PROMPT = 'On the beat! Press Beat to strike.';
 
 const PLACEHOLDER_PARTY_MEMBER: PartyMember = {
   id: 'sol',
@@ -30,7 +34,7 @@ const PLACEHOLDER_PARTY_MEMBER: PartyMember = {
   moves: [{ kind: 'attack', moveId: 'brass-burst', name: 'Brass Burst', power: 30 }],
 };
 
-const PLACEHOLDER_ENEMY: Combatant & { genre: Genre } = {
+const HOLLOW_STREETLAMP: Combatant & { genre: Genre } = {
   id: 'hollow-streetlamp',
   name: 'Hollow Streetlamp',
   hp: 30,
@@ -41,12 +45,43 @@ const PLACEHOLDER_ENEMY: Combatant & { genre: Genre } = {
   genre: Genre.Discord,
 };
 
-const PLACEHOLDER_ENCOUNTER: EncounterSpec = {
-  mode: 'normal',
-  bpm: 120,
-  soundId: 'battle-placeholder',
-  enemy: PLACEHOLDER_ENEMY,
+const SWAMP_IMP: Combatant & { genre: Genre } = {
+  id: 'swamp-imp',
+  name: 'Swamp Imp',
+  hp: 25,
+  maxHp: 25,
+  atk: 10,
+  def: 2,
+  focus: 0,
+  genre: Genre.Blues,
 };
+
+const DIMINUENDO_COMBATANT: Combatant & { genre: Genre } = {
+  id: 'diminuendo',
+  name: 'Diminuendo',
+  hp: 200,
+  maxHp: 200,
+  atk: 18,
+  def: 10,
+  focus: 70,
+  genre: Genre.Blues,
+};
+
+const ENEMY_BY_ID: Record<string, Combatant & { genre: Genre }> = {
+  'hollow-streetlamp': HOLLOW_STREETLAMP,
+  'swamp-imp': SWAMP_IMP,
+  diminuendo: DIMINUENDO_COMBATANT,
+};
+
+function lookupEnemy(id: string): Combatant & { genre: Genre } {
+  const enemy = ENEMY_BY_ID[id];
+  if (!enemy) {
+    throw new Error(`Unknown enemy id: ${id}`);
+  }
+  return { ...enemy };
+}
+
+type EncounterKind = 'normal' | 'boss';
 
 export interface GameOptions {
   readonly renderer?: Renderer;
@@ -69,6 +104,10 @@ export class Game {
   #animationFrame = 0;
   #startedAt = 0;
   #lastFrameAt = 0;
+  /** Region the player is currently exploring (defaults to Jazz City on a fresh save). */
+  #currentRegion: RegionId = 'jazz-city';
+  /** Whether the next 'encounter' event should load a boss spec instead of a mook. */
+  #nextEncounterKind: EncounterKind = 'normal';
 
   constructor(options: GameOptions = {}) {
     this.renderer = options.renderer ?? new Renderer();
@@ -150,31 +189,49 @@ export class Game {
           },
         });
 
-      case 'overworld':
-        return OverworldScene.makeDefault(this.renderer, this.input, (event) => {
+      case 'overworld': {
+        const makeRegion =
+          this.#currentRegion === 'bayou' ? makeBayouScene : makeJazzCityScene;
+        return makeRegion(this.renderer, this.input, (event) => {
           if (event.kind === 'encounter') {
+            this.#nextEncounterKind = 'normal';
             this.router.transition('encounter');
+          } else if (event.kind === 'boss-encounter') {
+            this.#nextEncounterKind = 'boss';
+            this.router.transition('encounter');
+          } else if (event.kind === 'region-change') {
+            this.#currentRegion = event.targetRegion;
+            this.#activeScene.exit();
+            this.#activeScene = this.#makeScene('overworld');
+            this.#activeScene.enter();
           }
         });
+      }
 
-      case 'battle':
+      case 'battle': {
+        const encounter: EncounterSpec =
+          this.#nextEncounterKind === 'boss'
+            ? makeDiminuendoEncounter({ lookupEnemy })
+            : makeBayouMookEncounter({ lookupEnemy });
         return new BattleScene({
           renderer: this.renderer,
           input: this.input,
           musicClock: this.musicClock,
           textbox: new Textbox({ text: PLACEHOLDER_BATTLE_PROMPT }),
-          party: [PLACEHOLDER_PARTY_MEMBER],
-          encounter: PLACEHOLDER_ENCOUNTER,
+          party: [{ ...PLACEHOLDER_PARTY_MEMBER }],
+          encounter,
           rng: this.#rng,
           onComplete: (outcome) => {
             // Phase-3: a successful recruitment ends the battle without a
-            // victory/defeat decision. For routing purposes (until Task 5
-            // wires the region-aware factory) treat it the same as victory
-            // so the player returns to the overworld.
+            // victory/defeat decision. Treat it as a victory for routing so
+            // the player returns to the overworld; recruited combatants are
+            // surfaced to the save layer in a future wave.
             const event = outcome === 'recruited' ? 'victory' : outcome;
+            this.#nextEncounterKind = 'normal';
             this.router.transition(event);
           },
         });
+      }
 
       case 'game-over':
         return new GameOverScene({

@@ -5,6 +5,9 @@ const TILE_FILL_STYLES: Record<TileId, string> = {
   encounter: '#a83246',
   grass: '#3a7d44',
   wall: '#4a4a4a',
+  'boss-encounter': '#7a1b2e',
+  'region-portal-jazz-city': '#c9a14a',
+  'region-portal-bayou': '#2f5a4c',
 };
 
 /**
@@ -77,9 +80,9 @@ export class Tilemap {
   }
 
   /**
-   * Whether the given tile blocks player movement. Walls block; grass and
-   * encounter tiles do not (the encounter triggers via callback after the
-   * player steps onto it).
+   * Whether the given tile blocks player movement. Walls block; grass,
+   * encounter, boss-encounter, and region-portal tiles do not (those each
+   * fire a callback after the player steps onto them).
    */
   isBlocked(tileX: number, tileY: number): boolean {
     return this.tileAt(tileX, tileY) === 'wall';

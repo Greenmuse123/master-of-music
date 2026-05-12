@@ -103,8 +103,17 @@ export class PlayerController {
 
       this.#state = { facing: dir.facing, tileX: nextX, tileY: nextY };
 
-      if (this.#map.tileAt(nextX, nextY) === 'encounter' && this.#onEvent !== undefined) {
-        this.#onEvent({ kind: 'encounter', tileX: nextX, tileY: nextY });
+      if (this.#onEvent !== undefined) {
+        const tile = this.#map.tileAt(nextX, nextY);
+        if (tile === 'encounter') {
+          this.#onEvent({ kind: 'encounter', tileX: nextX, tileY: nextY });
+        } else if (tile === 'boss-encounter') {
+          this.#onEvent({ kind: 'boss-encounter', tileX: nextX, tileY: nextY });
+        } else if (tile === 'region-portal-jazz-city') {
+          this.#onEvent({ kind: 'region-change', targetRegion: 'jazz-city' });
+        } else if (tile === 'region-portal-bayou') {
+          this.#onEvent({ kind: 'region-change', targetRegion: 'bayou' });
+        }
       }
 
       return;
