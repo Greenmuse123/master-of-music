@@ -10,7 +10,9 @@ export type RouterEvent =
   | 'cancel'
   | 'encounter'
   | 'victory'
-  | 'defeat';
+  | 'defeat'
+  | 'settings'
+  | 'apply';
 
 export type RouterChangeListener = (
   from: SceneId,
@@ -18,21 +20,24 @@ export type RouterChangeListener = (
   event: RouterEvent,
 ) => void;
 
-const TRANSITIONS: Readonly<Record<SceneId, Partial<Record<RouterEvent, SceneId>>>> =
+type RouterSceneId = SceneId | 'settings';
+
+const TRANSITIONS: Readonly<Record<RouterSceneId, Partial<Record<RouterEvent, RouterSceneId>>>> =
   Object.freeze({
-    title: { confirm: 'save-select' },
+    title: { confirm: 'save-select', settings: 'settings' },
     'save-select': { confirm: 'overworld', cancel: 'title' },
     overworld: { encounter: 'battle' },
     battle: { victory: 'overworld', defeat: 'game-over' },
     'game-over': { confirm: 'title' },
+    settings: { cancel: 'title', apply: 'title' },
   });
 
 export class SceneRouter {
-  #id: SceneId = 'title';
+  #id: RouterSceneId = 'title';
   readonly #listeners: RouterChangeListener[] = [];
 
   current(): SceneId {
-    return this.#id;
+    return this.#id as SceneId;
   }
 
   transition(event: RouterEvent): void {
@@ -44,7 +49,7 @@ export class SceneRouter {
     const from = this.#id;
     this.#id = next;
     for (const listener of this.#listeners) {
-      listener(from, next, event);
+      listener(from as SceneId, next as SceneId, event);
     }
   }
 
