@@ -167,7 +167,12 @@ export class Game {
           encounter: PLACEHOLDER_ENCOUNTER,
           rng: this.#rng,
           onComplete: (outcome) => {
-            this.router.transition(outcome);
+            // Phase-3: a successful recruitment ends the battle without a
+            // victory/defeat decision. For routing purposes (until Task 5
+            // wires the region-aware factory) treat it the same as victory
+            // so the player returns to the overworld.
+            const event = outcome === 'recruited' ? 'victory' : outcome;
+            this.router.transition(event);
           },
         });
 

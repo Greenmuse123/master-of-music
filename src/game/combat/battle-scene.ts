@@ -38,6 +38,8 @@ import { BossPhaseRunner } from './boss-phase';
 import { DissonanceMeter } from './dissonance-meter';
 import { evaluateParry } from './parry';
 import { evaluateRhythmHit } from './rhythm-window';
+import { attemptRecruit as runRecruitmentFlow } from './recruitment-flow';
+import type { RecruitmentResult } from './recruitment';
 import { getMatchupMultiplier } from './type-table';
 import type { Genre } from './genres';
 import type {
@@ -273,6 +275,43 @@ export class BattleScene implements Scene {
   /** Read-only access to the boss runner when in boss mode (undefined otherwise). */
   get bossRunner(): BossPhaseRunner | null {
     return this.#bossRunner;
+  }
+
+  /**
+   * Attempt to recruit the current enemy (docs/04 §6).
+   *
+   * Reads the live enemy HP fraction and the encounter's preferred genre
+   * (defaulting to the enemy's own genre), then runs the recruitment-flow
+   * shim around `evaluateRecruitmentAttempt`. On a successful recruit, this
+   * stops the battle by setting the outcome to `'recruited'` and invoking
+   * `onComplete('recruited')`; the caller can then route to dialogue or a
+   * save-flag flow. Rejection leaves the battle running so the player can
+   * keep fighting, retry the signal, or flee.
+   *
+   * Phase-3 note: the gameplay trigger (player binding that calls this when
+   * enemy HP < 25%) is wired in Phase 3.5 polish; this method is the
+   * scene-level API the trigger will call.
+   *
+   * No-op (returns `'hp-too-high'`) if the battle is already over.
+   */
+  attemptRecruit(signalGenre: Genre, dialogueOk: boolean): RecruitmentResult {
+    const maxHp = this.#enemy.maxHp <= 0 ? 1 : this.#enemy.maxHp;
+    const hpFraction = Math.max(0, this.#enemyHp / maxHp);
+
+    const result = runRecruitmentFlow({
+      defender: this.#enemy,
+      enemyHpFraction: hpFraction,
+      signalGenre,
+      dialogueOk,
+      defenderPreferredGenre: this.#encounter.defenderPreferredGenre,
+    });
+
+    if (result.kind === 'recruited' && this.#outcome === null) {
+      this.#emit({ kind: 'message', text: `${this.#enemy.name} joins the band!` });
+      this.#finish('recruited');
+    }
+
+    return result;
   }
 
   // ---------------------------------------------------------------------------

@@ -71,8 +71,15 @@ export type BattleEvent =
       readonly combatantId: string;
     };
 
-/** Battle outcome surfaced to the scene router. */
-export type BattleOutcome = 'victory' | 'defeat';
+/**
+ * Battle outcome surfaced to the scene router.
+ *
+ * `'recruited'` is appended in Phase 3 (per docs/04 §6): a successful
+ * recruitment attempt stops the battle without a victory/defeat decision so
+ * the caller can route to a dialogue / save-flag flow instead of the
+ * standard post-battle path.
+ */
+export type BattleOutcome = 'victory' | 'defeat' | 'recruited';
 
 /* ---------------------------------------------------------------------------
  * Phase-2 additions (append-only).
@@ -113,4 +120,10 @@ export interface EncounterSpec {
   readonly enemy: Combatant & { readonly genre: Genre };
   /** Bespoke phase script for boss encounters. Required iff `mode === 'boss'`. */
   readonly bossScript?: BossScript;
+  /**
+   * Genre the defender is most receptive to during a recruitment attempt
+   * (docs/04 §6). Optional; defaults to the enemy's own genre when omitted.
+   * Phase 3 addition — append-only, no existing field changes.
+   */
+  readonly defenderPreferredGenre?: Genre;
 }
