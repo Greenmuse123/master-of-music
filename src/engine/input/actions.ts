@@ -11,6 +11,7 @@ export const INPUT_ACTIONS = [
   'act-3',
   'act-4',
   'beat-press',
+  'recruit',
 ] as const;
 
 export type InputAction = (typeof INPUT_ACTIONS)[number];
@@ -76,6 +77,7 @@ export const DEFAULT_INPUT_BINDINGS: InputBindings = {
     { code: 'Escape', kind: 'key' },
     { button: 9, kind: 'gamepad-button' },
   ],
+  recruit: [{ code: 'KeyR', kind: 'key' }],
   right: [
     { code: 'KeyD', kind: 'key' },
     { button: 15, kind: 'gamepad-button' },

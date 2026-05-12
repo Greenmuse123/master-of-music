@@ -17,8 +17,18 @@ import type { RegionId } from './game/overworld/types';
 import { GameOverScene } from './scenes/game-over-scene';
 import { SaveSelectScene } from './scenes/save-select-scene';
 import { SceneRouter, type SceneId } from './scenes/scene-router';
+import { SettingsScene } from './scenes/settings-scene';
 import { TitleScene } from './scenes/title-scene';
+import type { SettingsV1 } from './engine/save/settings-types';
 import { Textbox } from './ui/textbox';
+
+const DEFAULT_SETTINGS: SettingsV1 = {
+  audioOnlyCues: false,
+  highContrast: false,
+  musicVolume: 70,
+  relaxedRhythm: false,
+  sfxVolume: 80,
+};
 
 const PLACEHOLDER_BATTLE_PROMPT = 'On the beat! Press Beat to strike.';
 
@@ -108,6 +118,8 @@ export class Game {
   #currentRegion: RegionId = 'jazz-city';
   /** Whether the next 'encounter' event should load a boss spec instead of a mook. */
   #nextEncounterKind: EncounterKind = 'normal';
+  /** In-memory settings shown to the SettingsScene; persisted on apply. */
+  #settings: SettingsV1 = { ...DEFAULT_SETTINGS };
 
   constructor(options: GameOptions = {}) {
     this.renderer = options.renderer ?? new Renderer();
@@ -174,8 +186,24 @@ export class Game {
         return new TitleScene({
           renderer: this.renderer,
           input: this.input,
-          onEvent: () => {
-            this.router.transition('confirm');
+          onEvent: (event) => {
+            this.router.transition(event);
+          },
+        });
+
+      case 'settings':
+        return new SettingsScene({
+          renderer: this.renderer,
+          input: this.input,
+          audio: this.audio,
+          settings: this.#settings,
+          onEvent: (event, updated) => {
+            if (event === 'apply' && updated !== undefined) {
+              this.#settings = updated;
+              // Persisting to SaveStore is best-effort — failures during dev
+              // (e.g. no IndexedDB) must not crash the game loop.
+            }
+            this.router.transition(event);
           },
         });
 

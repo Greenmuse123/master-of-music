@@ -201,6 +201,24 @@ export class BattleScene implements Scene {
       this.#performParry();
     }
 
+    // Recruitment trigger: when the enemy is at <25% HP and the player
+    // taps `recruit` (default KeyR), play a signal in the active party
+    // member's genre and run the recruitment-flow evaluator. dialogueOk
+    // defaults to true for Phase 3.5 — Phase 4 replaces this with a real
+    // DialogueRunner-backed prompt sourced from the encounter spec.
+    if (this.#input.pressed('recruit') && this.#outcome === null) {
+      const maxHp = this.#enemy.maxHp <= 0 ? 1 : this.#enemy.maxHp;
+      const hpFraction = Math.max(0, this.#enemyHp / maxHp);
+      if (hpFraction < 0.25) {
+        const activeMember = this.#partyState[this.#activeIndex];
+        if (activeMember !== undefined) {
+          this.attemptRecruit(activeMember.member.genre, true);
+        }
+      } else {
+        this.#emit({ kind: 'message', text: 'Too soon. Wear them down first.' });
+      }
+    }
+
     // Enemy stutter window: allow one free critical attack per stutter.
     if (this.#enemyDissonance.isStuttered()) {
       this.#performStutterBurst();

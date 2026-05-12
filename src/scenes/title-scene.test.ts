@@ -44,16 +44,19 @@ describe('TitleScene', () => {
     expect(scene.entered).toBe(false);
   });
 
-  it('renders title and prompt text centered', () => {
+  it('renders title + Start + Settings rows, all centered on integer pixels', () => {
     const ctx = stubCtx();
     const scene = new TitleScene();
 
+    scene.enter();
     scene.render(ctx);
 
     expect(ctx.fillRect).toHaveBeenCalledWith(0, 0, RENDER_W, RENDER_H);
     const drawnStrings = ctx.fillText.mock.calls.map((c) => c[0] as string);
     expect(drawnStrings).toContain('MASTER OF MUSIC');
-    expect(drawnStrings).toContain('Press Confirm to start');
+    // The selected row gets a `> ` prefix; the unselected row gets two spaces.
+    expect(drawnStrings).toContain('> Start');
+    expect(drawnStrings).toContain('  Settings');
     const centerX = Math.trunc(RENDER_W / 2);
     for (const call of ctx.fillText.mock.calls) {
       expect(call[1]).toBe(centerX);
@@ -61,7 +64,7 @@ describe('TitleScene', () => {
     }
   });
 
-  it('emits confirm event when confirm pressed', () => {
+  it('emits confirm event when confirm pressed on the Start row (default)', () => {
     const onEvent = vi.fn();
     const pressed = new Set<InputAction>(['confirm']);
     const scene = new TitleScene({ input: fakeInput(pressed), onEvent });
@@ -70,6 +73,23 @@ describe('TitleScene', () => {
     scene.update(step());
 
     expect(onEvent).toHaveBeenCalledWith('confirm');
+  });
+
+  it('emits settings event when confirm pressed on the Settings row', () => {
+    const onEvent = vi.fn();
+    const downPressed = new Set<InputAction>(['down']);
+    const downInput = fakeInput(downPressed);
+    const scene = new TitleScene({ input: downInput, onEvent });
+
+    scene.enter();
+    // First update: down arrow moves cursor to row 1 (Settings).
+    scene.update(step());
+    // Second update: confirm fires settings.
+    downPressed.delete('down');
+    downPressed.add('confirm');
+    scene.update(step(16));
+
+    expect(onEvent).toHaveBeenCalledWith('settings');
   });
 
   it('does not emit confirm before entering', () => {
@@ -89,6 +109,29 @@ describe('TitleScene', () => {
     scene.update(step());
 
     expect(onEvent).not.toHaveBeenCalled();
+  });
+
+  it('clamps selection at the top and bottom of the menu', () => {
+    const onEvent = vi.fn();
+    const pressed = new Set<InputAction>();
+    const scene = new TitleScene({ input: fakeInput(pressed), onEvent });
+
+    scene.enter();
+    // Press up — already at row 0, no movement, but no crash.
+    pressed.add('up');
+    scene.update(step());
+    pressed.clear();
+
+    // Press down twice — only one row to advance.
+    pressed.add('down');
+    scene.update(step(16));
+    scene.update(step(32));
+    pressed.clear();
+    pressed.add('confirm');
+    scene.update(step(48));
+
+    // Selection clamped at Settings row.
+    expect(onEvent).toHaveBeenCalledWith('settings');
   });
 
   it('handleInput is a no-op', () => {
