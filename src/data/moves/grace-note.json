@@ -1,0 +1,9 @@
+{
+  "id": "grace-note",
+  "displayName": "Grace Note",
+  "genre": "jazz",
+  "ownerType": "instrument",
+  "ownerIds": ["vel"],
+  "power": 20,
+  "narrativeText": "Vel slips a tiny ornament between the beats."
+}

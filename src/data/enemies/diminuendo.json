@@ -1,0 +1,11 @@
+{
+  "id": "diminuendo",
+  "name": "Diminuendo",
+  "genre": "blues",
+  "hp": 200,
+  "maxHp": 200,
+  "atk": 18,
+  "def": 10,
+  "focus": 70,
+  "moves": []
+}

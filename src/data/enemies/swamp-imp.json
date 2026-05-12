@@ -1,0 +1,11 @@
+{
+  "id": "swamp-imp",
+  "name": "Swamp Imp",
+  "genre": "blues",
+  "hp": 25,
+  "maxHp": 25,
+  "atk": 10,
+  "def": 2,
+  "focus": 0,
+  "moves": []
+}

@@ -1,0 +1,9 @@
+{
+  "id": "blue-note-bend",
+  "displayName": "Blue Note Bend",
+  "genre": "blues",
+  "ownerType": "instrument",
+  "ownerIds": ["pete"],
+  "power": 40,
+  "narrativeText": "Pete bends a low E into a question."
+}

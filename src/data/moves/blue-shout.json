@@ -1,0 +1,9 @@
+{
+  "id": "blue-shout",
+  "displayName": "Blue Shout",
+  "genre": "jazz",
+  "ownerType": "instrument",
+  "ownerIds": ["vel"],
+  "power": 35,
+  "narrativeText": "Vel screams a high B-flat that splits the air."
+}

@@ -1,0 +1,11 @@
+{
+  "id": "hollow-streetlamp",
+  "name": "Hollow Streetlamp",
+  "genre": "discord",
+  "hp": 30,
+  "maxHp": 30,
+  "atk": 8,
+  "def": 3,
+  "focus": 0,
+  "moves": []
+}

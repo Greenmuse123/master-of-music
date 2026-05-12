@@ -1,0 +1,11 @@
+{
+  "id": "vel",
+  "name": "Velma Mute",
+  "genre": "jazz",
+  "hp": 40,
+  "maxHp": 40,
+  "atk": 16,
+  "def": 4,
+  "focus": 60,
+  "moves": ["blue-shout", "grace-note"]
+}

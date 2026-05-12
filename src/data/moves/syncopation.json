@@ -1,0 +1,9 @@
+{
+  "id": "syncopation",
+  "displayName": "Syncopation",
+  "genre": "jazz",
+  "ownerType": "instrument",
+  "ownerIds": ["sol"],
+  "power": 22,
+  "narrativeText": "Sol pushes the downbeat sideways and the enemy stumbles into it."
+}

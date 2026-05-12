@@ -1,0 +1,9 @@
+{
+  "id": "walking-bass",
+  "displayName": "Walking Bass",
+  "genre": "blues",
+  "ownerType": "instrument",
+  "ownerIds": ["pete"],
+  "power": 25,
+  "narrativeText": "Pete strolls a four-bar line that hems the enemy in."
+}

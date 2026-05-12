@@ -1,0 +1,11 @@
+{
+  "id": "sol",
+  "name": "Sol Reed",
+  "genre": "jazz",
+  "hp": 50,
+  "maxHp": 50,
+  "atk": 12,
+  "def": 5,
+  "focus": 50,
+  "moves": ["brass-burst", "syncopation"]
+}

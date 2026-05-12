@@ -1,0 +1,11 @@
+{
+  "id": "pete",
+  "name": "Old Pete",
+  "genre": "blues",
+  "hp": 70,
+  "maxHp": 70,
+  "atk": 8,
+  "def": 8,
+  "focus": 40,
+  "moves": ["walking-bass", "blue-note-bend"]
+}

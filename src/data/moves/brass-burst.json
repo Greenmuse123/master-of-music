@@ -1,0 +1,9 @@
+{
+  "id": "brass-burst",
+  "displayName": "Brass Burst",
+  "genre": "jazz",
+  "ownerType": "instrument",
+  "ownerIds": ["sol"],
+  "power": 30,
+  "narrativeText": "Sol punches a bright triplet through the silence."
+}

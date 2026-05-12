@@ -1,0 +1,11 @@
+{
+  "id": "sour-note",
+  "name": "Sour Note",
+  "genre": "jazz",
+  "hp": 35,
+  "maxHp": 35,
+  "atk": 9,
+  "def": 4,
+  "focus": 20,
+  "moves": []
+}
