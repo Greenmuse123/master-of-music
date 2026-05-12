@@ -7,7 +7,7 @@
  * `battle-scene.ts`. Keep additions append-only.
  */
 
-export type RhythmQuality = 'perfect' | 'good' | 'miss';
+export type RhythmQuality = 'critical' | 'perfect' | 'good' | 'off' | 'miss';
 
 /**
  * Result of a single rhythm-window evaluation. The placeholder returns the
