@@ -1,0 +1,14 @@
+{
+  "id": "bayou-npc-1",
+  "entry": "greet",
+  "nodes": {
+    "greet": {
+      "id": "greet",
+      "speaker": "Bayou Local",
+      "lines": [
+        "This here's the bayou, son. Mind the spirits.",
+        "Water's been singin' real low lately — ain't natural, ain't no how."
+      ]
+    }
+  }
+}

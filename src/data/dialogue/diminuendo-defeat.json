@@ -1,0 +1,43 @@
+{
+  "id": "diminuendo-defeat",
+  "entry": "lament",
+  "nodes": {
+    "lament": {
+      "id": "lament",
+      "speaker": "Diminuendo",
+      "lines": [
+        "Behold — the long, exquisite hush descends, and I am unmade upon its altar.",
+        "Once I conducted oceans of silence; now even my requiem expires upon my tongue.",
+        "Speak, little brass, or leave me to the cathedral of my own quiet undoing."
+      ],
+      "choices": [
+        {
+          "id": "sing-back",
+          "label": "Offer a song.",
+          "next": "recruit-attempt",
+          "flag": "recruit-diminuendo"
+        },
+        {
+          "id": "walk-away",
+          "label": "Walk away in silence.",
+          "next": "silence"
+        }
+      ]
+    },
+    "recruit-attempt": {
+      "id": "recruit-attempt",
+      "speaker": "Sol",
+      "lines": [
+        "Got one verse left.",
+        "Play it with me."
+      ]
+    },
+    "silence": {
+      "id": "silence",
+      "speaker": "Sol",
+      "lines": [
+        "Nothing left to say."
+      ]
+    }
+  }
+}

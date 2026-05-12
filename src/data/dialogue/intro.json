@@ -1,0 +1,15 @@
+{
+  "id": "intro",
+  "entry": "open",
+  "nodes": {
+    "open": {
+      "id": "open",
+      "speaker": "Sol",
+      "lines": [
+        "The chord just broke.",
+        "Brass: Steady, dear boy. South.",
+        "South, then. Away."
+      ]
+    }
+  }
+}
