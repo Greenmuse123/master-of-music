@@ -1,19 +1,29 @@
 /**
- * Phase-1 BattleScene.
+ * Phase-2 BattleScene.
  *
- * Implements the `Scene` contract from `src/engine/scene/scene.ts`. Runs a
- * 1v1 jam: HP bars, a textbox prompt, a beat-aligned rhythm cue, a single
- * "Brass Burst" attack. On `confirm`, the scene reads the music clock to
- * decide rhythm quality, resolves an action, applies damage, and emits a
- * `victory` event via `onComplete` once the defender drops to 0 HP.
+ * Wires the five Phase-2 combat primitives together:
  *
- * All randomness routes through the injected `rng` (per docs/03 §4.4 and the
- * Phase-1 rubric §8 determinism rule). All beat timing routes through the
- * injected `musicClock` (docs/08 §1: never `performance.now()` in combat).
+ *   - rhythm-window      (`evaluateRhythmHit`, 5-band)
+ *   - type-table         (`getMatchupMultiplier`)
+ *   - parry              (`evaluateParry`, defender side)
+ *   - dissonance-meter   (stutter accumulation per side)
+ *   - boss-phase         (scripted phase runner for boss encounters)
  *
- * Phase-2 spec 08 will replace the rhythm-window placeholder body, expand
- * the cue table from 3 bands to 5, and add defense/improvise paths; this
- * scene's input surface and render surface are designed to absorb that.
+ * BPM is sourced from {@link MusicClock} at scene `enter()` via
+ * `musicClock.start(soundId, encounter.bpm)`. The scene NEVER reads
+ * `performance.now()`, `Date.now()`, or `Math.random()` directly — all
+ * randomness routes through the injected `rng`, all timing routes through
+ * the injected `musicClock`. This is the determinism contract that the
+ * Phase-2 record-replay harness depends on (see docs/plans/PHASE-2.md Task 3).
+ *
+ * Input contract (per `src/engine/input/actions.ts`):
+ *   - `beat-press` (Space)   — player's offensive rhythm hit
+ *   - `confirm`              — player's defensive parry during an enemy attack window
+ *
+ * Render contract: black background, party HP bars top-left, enemy HP bar
+ * top-right, a moving rhythm cue across the middle, the textbox at the
+ * bottom, and a parry-cue indicator when an enemy attack is pending. All
+ * paint calls land on integer pixel coords.
  */
 
 import { RENDER_H, RENDER_W } from '../../config/constants';
@@ -23,23 +33,36 @@ import type { Renderer } from '../../engine/render/renderer';
 import type { FrameStep, Scene } from '../../engine/scene/scene';
 import type { Textbox } from '../../ui/textbox';
 import { resolveAction } from './action-resolver';
-import { evaluateRhythmHit } from './rhythm-window-placeholder';
-import type { BattleEvent, BattleOutcome, Combatant, MoveAction } from './types';
+import type { BossEvent } from './boss-types';
+import { BossPhaseRunner } from './boss-phase';
+import { DissonanceMeter } from './dissonance-meter';
+import { evaluateParry } from './parry';
+import { evaluateRhythmHit } from './rhythm-window';
+import { getMatchupMultiplier } from './type-table';
+import type { Genre } from './genres';
+import type {
+  BattleEvent,
+  BattleOutcome,
+  Combatant,
+  EncounterSpec,
+  MoveAction,
+  PartyMember,
+  RhythmResult,
+} from './types';
+
+type EnemyCombatant = Combatant & { readonly genre: Genre };
 
 const HP_BAR_W = 120;
 const HP_BAR_H = 8;
 const HP_BAR_PADDING = 8;
+const HP_BAR_STACK_GAP = 12;
+const PARTY_LABEL_Y_OFFSET = 10;
 const RHYTHM_CUE_RADIUS = 6;
 const RHYTHM_CUE_Y = 96;
 const RHYTHM_CUE_TRAVEL_PX = 200;
-const RHYTHM_DEFAULT_LATENCY_MS = 0;
-
-const DEFAULT_MOVE: MoveAction = {
-  kind: 'attack',
-  moveId: 'brass-burst',
-  name: 'Brass Burst',
-  power: 30,
-};
+const PARRY_CUE_Y = 120;
+const PARRY_CUE_RADIUS = 8;
+const ENEMY_STUTTER_BURST_MULT = 2.0;
 
 export type BattleSceneRng = () => number;
 export type BattleSceneComplete = (outcome: BattleOutcome) => void;
@@ -49,12 +72,15 @@ export interface BattleSceneOptions {
   readonly input: InputManager;
   readonly musicClock: MusicClock;
   readonly textbox: Textbox;
-  readonly attacker: Combatant;
-  readonly defender: Combatant;
+  readonly party: readonly PartyMember[];
+  readonly encounter: EncounterSpec;
   readonly rng: BattleSceneRng;
   readonly onComplete: BattleSceneComplete;
-  /** Optional override of the default move (Phase-2 plugs movesets here). */
-  readonly move?: MoveAction;
+}
+
+interface PartyState {
+  readonly member: PartyMember;
+  hp: number;
 }
 
 export class BattleScene implements Scene {
@@ -62,43 +88,86 @@ export class BattleScene implements Scene {
   readonly #input: InputManager;
   readonly #musicClock: MusicClock;
   readonly #textbox: Textbox;
-  readonly #attacker: Combatant;
-  readonly #defender: Combatant;
+  readonly #encounter: EncounterSpec;
   readonly #rng: BattleSceneRng;
   readonly #onComplete: BattleSceneComplete;
-  readonly #move: MoveAction;
+  readonly #partyState: PartyState[];
 
-  #attackerHp: number;
-  #defenderHp: number;
-  #lastEvents: BattleEvent[] = [];
+  #enemy: EnemyCombatant;
+  #enemyHp: number;
+  #partyDissonance: DissonanceMeter;
+  #enemyDissonance: DissonanceMeter;
+  #bossRunner: BossPhaseRunner | null = null;
+  #pendingParryBeat: number | null = null;
+  #bossDefeated = false;
+  #events: BattleEvent[] = [];
+  #lastTurnEvents: BattleEvent[] = [];
   #outcome: BattleOutcome | null = null;
   #entered = false;
+  #beatsPerMs = 0;
+  #activeIndex = 0;
 
   constructor(options: BattleSceneOptions) {
+    if (options.party.length === 0) {
+      throw new Error('BattleScene: party must have at least one member.');
+    }
+
+    if (options.encounter.mode === 'boss' && options.encounter.bossScript === undefined) {
+      throw new Error('BattleScene: boss-mode encounter requires a bossScript.');
+    }
+
     this.#renderer = options.renderer;
     this.#input = options.input;
     this.#musicClock = options.musicClock;
     this.#textbox = options.textbox;
-    this.#attacker = options.attacker;
-    this.#defender = options.defender;
+    this.#encounter = options.encounter;
     this.#rng = options.rng;
     this.#onComplete = options.onComplete;
-    this.#move = options.move ?? DEFAULT_MOVE;
 
-    this.#attackerHp = options.attacker.hp;
-    this.#defenderHp = options.defender.hp;
+    this.#partyState = options.party.map((member) => ({ member, hp: member.hp }));
+    this.#enemy = options.encounter.enemy;
+    this.#enemyHp = options.encounter.enemy.hp;
+    this.#partyDissonance = new DissonanceMeter();
+    this.#enemyDissonance = new DissonanceMeter();
   }
 
   enter(_prev?: Scene): void {
     this.#entered = true;
-    this.#attackerHp = this.#attacker.hp;
-    this.#defenderHp = this.#defender.hp;
-    this.#lastEvents = [];
     this.#outcome = null;
+    this.#events = [];
+    this.#lastTurnEvents = [];
+    this.#enemyHp = this.#enemy.hp;
+    this.#partyDissonance = new DissonanceMeter();
+    this.#enemyDissonance = new DissonanceMeter();
+    this.#pendingParryBeat = null;
+    this.#bossDefeated = false;
+    this.#activeIndex = 0;
+    this.#beatsPerMs = this.#encounter.bpm / 60_000;
+
+    for (const state of this.#partyState) {
+      state.hp = state.member.hp;
+    }
+
+    this.#musicClock.start(this.#encounter.soundId, this.#encounter.bpm);
+
+    if (this.#encounter.mode === 'boss' && this.#encounter.bossScript !== undefined) {
+      this.#bossRunner = new BossPhaseRunner({
+        script: this.#encounter.bossScript,
+        onEvent: (event) => this.#handleBossEvent(event),
+      });
+      this.#bossRunner.start();
+    } else {
+      this.#bossRunner = null;
+    }
+
+    this.#emit({ kind: 'message', text: `A wild ${this.#enemy.name} appears!` });
   }
 
   exit(_next?: Scene): void {
     this.#entered = false;
+    this.#musicClock.stop();
+    this.#bossRunner = null;
+    this.#pendingParryBeat = null;
   }
 
   update(_step: FrameStep): void {
@@ -106,92 +175,338 @@ export class BattleScene implements Scene {
       return;
     }
 
-    if (this.#input.pressed('confirm')) {
-      this.#triggerAttack();
+    this.#lastTurnEvents = [];
+
+    // Drive boss script first so cue / vulnerable / defeated events are
+    // observable to the rest of the frame (e.g. allowing burst damage during
+    // a vulnerable window).
+    if (this.#bossRunner !== null) {
+      const enemyMaxHp = this.#enemy.maxHp <= 0 ? 1 : this.#enemy.maxHp;
+      const hpFraction = Math.max(0, this.#enemyHp / enemyMaxHp);
+      this.#bossRunner.tick(this.#musicClock.beat(), hpFraction);
+
+      if (this.#bossDefeated && this.#outcome === null) {
+        this.#finish('victory');
+        return;
+      }
     }
+
+    if (this.#input.pressed('beat-press')) {
+      this.#performAttack();
+    }
+
+    if (this.#pendingParryBeat !== null && this.#input.pressed('confirm')) {
+      this.#performParry();
+    }
+
+    // Enemy stutter window: allow one free critical attack per stutter.
+    if (this.#enemyDissonance.isStuttered()) {
+      this.#performStutterBurst();
+      this.#enemyDissonance.tickRound();
+
+      if (this.#bossRunner !== null) {
+        this.#bossRunner.triggerStutterAdvance();
+      }
+    }
+
+    this.#checkEndConditions();
   }
 
   render(ctx: CanvasRenderingContext2D): void {
-    ctx.fillStyle = '#1a1430';
+    ctx.fillStyle = '#000000';
     ctx.fillRect(0, 0, RENDER_W, RENDER_H);
 
-    this.#drawHpBar(ctx, this.#attacker.name, this.#attackerHp, this.#attacker.maxHp, HP_BAR_PADDING, RENDER_H - HP_BAR_PADDING - HP_BAR_H - 96);
-    this.#drawHpBar(
-      ctx,
-      this.#defender.name,
-      this.#defenderHp,
-      this.#defender.maxHp,
-      RENDER_W - HP_BAR_PADDING - HP_BAR_W,
-      HP_BAR_PADDING,
-    );
-
+    this.#drawPartyHpBars(ctx);
+    this.#drawEnemyHpBar(ctx);
     this.#drawRhythmCue(ctx);
+
+    if (this.#pendingParryBeat !== null) {
+      this.#drawParryCue(ctx);
+    }
+
     this.#textbox.render(ctx);
+
+    // Touch the renderer reference so the dependency stays live for Phase 3
+    // when the scene starts pushing layered draw commands.
+    void this.#renderer;
   }
 
   handleInput(_event: Event): void {
     // Input is polled via InputManager during update; no per-event handling.
   }
 
-  /** Read-only view for tests. */
-  get attackerHp(): number {
-    return this.#attackerHp;
+  /** Read-only HP of the active party member (first member). */
+  get activePartyHp(): number {
+    return this.#partyState[this.#activeIndex]!.hp;
   }
 
-  /** Read-only view for tests. */
-  get defenderHp(): number {
-    return this.#defenderHp;
+  /** Read-only HP of the enemy. */
+  get enemyHp(): number {
+    return this.#enemyHp;
   }
 
-  /** Read-only view of the events emitted by the most recent attack. */
-  get lastEvents(): readonly BattleEvent[] {
-    return this.#lastEvents;
-  }
-
-  /** Outcome of the battle, or null while in progress. */
+  /** Read-only outcome of the battle, or null while in progress. */
   get outcome(): BattleOutcome | null {
     return this.#outcome;
   }
 
-  #triggerAttack(): void {
-    const beatMs = beatToMs(this.#musicClock);
-    const targetMs = nearestBeatMs(beatMs);
-    // Use the injected rng to model a tiny perceptual latency around each beat.
-    const jitter = (this.#rng() - 0.5) * RHYTHM_DEFAULT_LATENCY_MS;
-    const rhythm = evaluateRhythmHit(beatMs + jitter, targetMs, this.#attacker.focus);
+  /** Read-only view of events emitted on the most recent `update` tick. */
+  get lastTurnEvents(): readonly BattleEvent[] {
+    return this.#lastTurnEvents;
+  }
+
+  /** Read-only view of every event since `enter()`. Used by the replay test. */
+  get eventLog(): readonly BattleEvent[] {
+    return this.#events;
+  }
+
+  /** Read-only access to the active party member's dissonance meter (UI / tests). */
+  get partyDissonance(): DissonanceMeter {
+    return this.#partyDissonance;
+  }
+
+  /** Read-only access to the enemy's dissonance meter (UI / tests). */
+  get enemyDissonance(): DissonanceMeter {
+    return this.#enemyDissonance;
+  }
+
+  /** Read-only access to the boss runner when in boss mode (undefined otherwise). */
+  get bossRunner(): BossPhaseRunner | null {
+    return this.#bossRunner;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Internal: rhythm + damage path
+  // ---------------------------------------------------------------------------
+
+  #performAttack(): void {
+    const attacker = this.#partyState[this.#activeIndex]!.member;
+    const move = attacker.moves[0];
+    if (move === undefined) {
+      return;
+    }
+
+    const rhythm = this.#evaluateRhythm(attacker.focus);
+    const matchup = getMatchupMultiplier(attacker.genre, this.#enemy.genre);
+    this.#applyAttack(attacker, this.#enemy, move, rhythm, matchup, 'party-to-enemy');
+  }
+
+  #performStutterBurst(): void {
+    // While the enemy is stuttered the active party member lands a guaranteed
+    // critical attack. Source of the multiplier table: docs/04 §3.3.
+    const attacker = this.#partyState[this.#activeIndex]!.member;
+    const move = attacker.moves[0];
+    if (move === undefined) {
+      return;
+    }
+
+    this.#emit({ kind: 'message', text: `${this.#enemy.name} stutters!` });
+
+    const rhythm: RhythmResult = {
+      quality: 'critical',
+      damageMul: 2.0,
+      resReturn: 6,
+      deltaMs: 0,
+    };
+    const matchup = getMatchupMultiplier(attacker.genre, this.#enemy.genre);
+    this.#applyAttack(
+      attacker,
+      this.#enemy,
+      move,
+      rhythm,
+      matchup * ENEMY_STUTTER_BURST_MULT,
+      'stutter-burst',
+    );
+  }
+
+  #applyAttack(
+    attacker: PartyMember,
+    defender: EnemyCombatant,
+    move: MoveAction,
+    rhythm: RhythmResult,
+    multiplier: number,
+    _label: 'party-to-enemy' | 'stutter-burst',
+  ): void {
+    const scaledRhythm: RhythmResult = {
+      quality: rhythm.quality,
+      damageMul: rhythm.damageMul * multiplier,
+      resReturn: rhythm.resReturn,
+      deltaMs: rhythm.deltaMs,
+    };
 
     const events = resolveAction(
-      this.#move,
-      { ...this.#attacker, hp: this.#attackerHp },
-      { ...this.#defender, hp: this.#defenderHp },
-      rhythm,
+      move,
+      { ...attacker, hp: this.#partyState[this.#activeIndex]!.hp },
+      { ...defender, hp: this.#enemyHp },
+      scaledRhythm,
     );
 
     for (const event of events) {
-      this.#applyEvent(event);
+      this.#applyDamageEvent(event);
+      this.#emit(event);
     }
 
-    this.#lastEvents = events;
+    // Dissonance bookkeeping (docs/04 §3.4):
+    //
+    //   - Critical/perfect on the opponent => party dissonance falls (the
+    //     active member's own meter receives the negative-delta quality),
+    //     and the enemy's composure crumbles a notch (we route a positive-
+    //     delta quality to the enemy meter to drive it toward stutter).
+    //   - Off/miss => party dissonance rises on the active member's meter;
+    //     the enemy gets no benefit.
+    //   - Good is a wash on both meters.
+    this.#partyDissonance.addFromQuality(rhythm.quality);
 
-    if (this.#defenderHp <= 0 && this.#outcome === null) {
-      this.#outcome = 'victory';
-      this.#onComplete('victory');
-    } else if (this.#attackerHp <= 0 && this.#outcome === null) {
-      this.#outcome = 'defeat';
-      this.#onComplete('defeat');
+    if (rhythm.quality === 'critical') {
+      this.#enemyDissonance.addFromQuality('miss');
+    } else if (rhythm.quality === 'perfect') {
+      this.#enemyDissonance.addFromQuality('off');
     }
   }
 
-  #applyEvent(event: BattleEvent): void {
+  #performParry(): void {
+    const parryBeat = this.#pendingParryBeat;
+    if (parryBeat === null) {
+      return;
+    }
+
+    const defender = this.#partyState[this.#activeIndex]!.member;
+    const nowMs = this.#clockMs();
+    const cueMs = parryBeat / this.#beatsPerMs;
+    const parry = evaluateParry(nowMs, cueMs, defender.focus);
+
+    this.#emit({
+      kind: 'message',
+      text: parry.quality === 'miss' ? 'Parry missed!' : `Parry ${parry.quality}!`,
+    });
+
+    if (parry.quality !== 'miss') {
+      this.#enemyDissonance.addFromQuality('off');
+    } else {
+      this.#partyDissonance.addFromQuality('miss');
+    }
+
+    this.#pendingParryBeat = null;
+  }
+
+  #evaluateRhythm(focus: number): RhythmResult {
+    const beat = Math.max(0, this.#musicClock.beat());
+    const phase = clamp01(this.#musicClock.beatPhase());
+    const fractionalBeat = beat + phase;
+    // Tiny perceptual jitter routed through the injected rng — never Math.random.
+    // The amplitude (±0.5ms) is small enough not to change band classification
+    // for any reasonable input, but it keeps `rng` live in the deterministic
+    // event log path so the replay harness exercises it.
+    const jitterMs = (this.#rng() - 0.5);
+    const targetBeat = Math.round(fractionalBeat);
+    const msPerBeat = 60_000 / this.#encounter.bpm;
+    const nowMs = fractionalBeat * msPerBeat + jitterMs;
+    const targetMs = targetBeat * msPerBeat;
+
+    return evaluateRhythmHit(nowMs, targetMs, focus);
+  }
+
+  #clockMs(): number {
+    const beat = Math.max(0, this.#musicClock.beat());
+    const phase = clamp01(this.#musicClock.beatPhase());
+    return (beat + phase) * (60_000 / this.#encounter.bpm);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Internal: boss runner integration
+  // ---------------------------------------------------------------------------
+
+  #handleBossEvent(event: BossEvent): void {
+    switch (event.kind) {
+      case 'phase-enter':
+        this.#emit({ kind: 'message', text: `${this.#enemy.name}: phase ${event.phaseId}.` });
+        break;
+      case 'cue':
+        this.#pendingParryBeat = event.beatIndex;
+        this.#emit({ kind: 'message', text: 'Incoming attack — parry!' });
+        break;
+      case 'vulnerable':
+        this.#emit({ kind: 'message', text: `Vulnerable! ${event.remainingBeats} beats.` });
+        break;
+      case 'phase-exit':
+        this.#pendingParryBeat = null;
+        break;
+      case 'defeated':
+        this.#bossDefeated = true;
+        break;
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Internal: event + outcome bookkeeping
+  // ---------------------------------------------------------------------------
+
+  #emit(event: BattleEvent): void {
+    this.#events.push(event);
+    this.#lastTurnEvents.push(event);
+  }
+
+  #applyDamageEvent(event: BattleEvent): void {
     if (event.kind !== 'damage') {
       return;
     }
 
-    if (event.defenderId === this.#defender.id) {
-      this.#defenderHp = Math.max(0, this.#defenderHp - event.amount);
-    } else if (event.defenderId === this.#attacker.id) {
-      this.#attackerHp = Math.max(0, this.#attackerHp - event.amount);
+    if (event.defenderId === this.#enemy.id) {
+      this.#enemyHp = Math.max(0, this.#enemyHp - event.amount);
+      return;
     }
+
+    for (const state of this.#partyState) {
+      if (state.member.id === event.defenderId) {
+        state.hp = Math.max(0, state.hp - event.amount);
+        return;
+      }
+    }
+  }
+
+  #checkEndConditions(): void {
+    if (this.#outcome !== null) {
+      return;
+    }
+
+    if (this.#enemyHp <= 0) {
+      this.#finish('victory');
+      return;
+    }
+
+    const allDown = this.#partyState.every((state) => state.hp <= 0);
+    if (allDown) {
+      this.#finish('defeat');
+    }
+  }
+
+  #finish(outcome: BattleOutcome): void {
+    this.#outcome = outcome;
+    this.#onComplete(outcome);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Internal: render helpers
+  // ---------------------------------------------------------------------------
+
+  #drawPartyHpBars(ctx: CanvasRenderingContext2D): void {
+    for (let i = 0; i < this.#partyState.length; i += 1) {
+      const state = this.#partyState[i]!;
+      const x = HP_BAR_PADDING;
+      const y = RENDER_H - HP_BAR_PADDING - HP_BAR_H - 96 - i * HP_BAR_STACK_GAP;
+      this.#drawHpBar(ctx, state.member.name, state.hp, state.member.maxHp, x, y);
+    }
+  }
+
+  #drawEnemyHpBar(ctx: CanvasRenderingContext2D): void {
+    this.#drawHpBar(
+      ctx,
+      this.#enemy.name,
+      this.#enemyHp,
+      this.#enemy.maxHp,
+      RENDER_W - HP_BAR_PADDING - HP_BAR_W,
+      HP_BAR_PADDING,
+    );
   }
 
   #drawHpBar(
@@ -207,16 +522,12 @@ export class BattleScene implements Scene {
     const ratio = maxHp <= 0 ? 0 : Math.max(0, Math.min(1, hp / maxHp));
     const fillW = Math.round(HP_BAR_W * ratio);
 
-    ctx.fillStyle = '#000';
+    ctx.fillStyle = '#000000';
     ctx.fillRect(snappedX, snappedY, HP_BAR_W, HP_BAR_H);
     ctx.fillStyle = '#3aa856';
     ctx.fillRect(snappedX, snappedY, fillW, HP_BAR_H);
-    ctx.fillStyle = '#fff';
-    ctx.fillText(`${label} ${Math.round(hp)}/${maxHp}`, snappedX, snappedY - 10);
-    // Renderer's queued drawing isn't used here — the scene paints directly
-    // onto the supplied ctx so the test stub captures every call.
-    // Touching the renderer reference keeps the dependency live for Phase 2.
-    void this.#renderer;
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(`${label} ${Math.round(hp)}/${maxHp}`, snappedX, snappedY - PARTY_LABEL_Y_OFFSET);
   }
 
   #drawRhythmCue(ctx: CanvasRenderingContext2D): void {
@@ -225,26 +536,25 @@ export class BattleScene implements Scene {
     const cueY = Math.round(RHYTHM_CUE_Y);
 
     ctx.fillStyle = '#f7d65a';
-    ctx.fillRect(cueX - RHYTHM_CUE_RADIUS, cueY - RHYTHM_CUE_RADIUS, RHYTHM_CUE_RADIUS * 2, RHYTHM_CUE_RADIUS * 2);
+    ctx.fillRect(
+      cueX - RHYTHM_CUE_RADIUS,
+      cueY - RHYTHM_CUE_RADIUS,
+      RHYTHM_CUE_RADIUS * 2,
+      RHYTHM_CUE_RADIUS * 2,
+    );
   }
-}
 
-function beatToMs(clock: MusicClock): number {
-  // Use the clock's own beat-phase composition so combat never reads wall time.
-  // beat() is the integer beat index; beatPhase() is the [0,1) position inside
-  // the current beat. We treat the integer beat as the local time origin and
-  // the phase as a ms offset scaled by a nominal 500ms-per-beat budget — the
-  // Phase-1 placeholder rhythm window only cares about relative deltas, not
-  // absolute wall time, so this is consistent with itself.
-  const beat = Math.max(0, clock.beat());
-  const phase = clamp01(clock.beatPhase());
-  const beatMs = 500;
-  return beat * beatMs + phase * beatMs;
-}
-
-function nearestBeatMs(beatMs: number): number {
-  const beatLength = 500;
-  return Math.round(beatMs / beatLength) * beatLength;
+  #drawParryCue(ctx: CanvasRenderingContext2D): void {
+    const cueX = Math.round(RENDER_W / 2);
+    const cueY = Math.round(PARRY_CUE_Y);
+    ctx.fillStyle = '#ff5577';
+    ctx.fillRect(
+      cueX - PARRY_CUE_RADIUS,
+      cueY - PARRY_CUE_RADIUS,
+      PARRY_CUE_RADIUS * 2,
+      PARRY_CUE_RADIUS * 2,
+    );
+  }
 }
 
 function clamp01(value: number): number {

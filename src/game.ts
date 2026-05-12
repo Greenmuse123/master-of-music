@@ -7,7 +7,8 @@ import { SaveStore } from './engine/save/store';
 import type { FrameStep, Scene } from './engine/scene/scene';
 import { mulberry32, type Prng } from './engine/util/rng';
 import { BattleScene } from './game/combat/battle-scene';
-import type { Combatant } from './game/combat/types';
+import { Genre } from './game/combat/genres';
+import type { Combatant, EncounterSpec, PartyMember } from './game/combat/types';
 import { OverworldScene } from './game/overworld/overworld-scene';
 import { GameOverScene } from './scenes/game-over-scene';
 import { SaveSelectScene } from './scenes/save-select-scene';
@@ -15,15 +16,37 @@ import { SceneRouter, type SceneId } from './scenes/scene-router';
 import { TitleScene } from './scenes/title-scene';
 import { Textbox } from './ui/textbox';
 
-const PLACEHOLDER_BATTLE_PROMPT = 'A hollow streetlamp blocks your path. Press Confirm on the beat!';
+const PLACEHOLDER_BATTLE_PROMPT = 'A hollow streetlamp blocks your path. Press Beat on the beat!';
 
-function makePlaceholderAttacker(): Combatant {
-  return { id: 'sol', name: 'Sol Reed', hp: 50, maxHp: 50, atk: 12, def: 5, focus: 50 };
-}
+const PLACEHOLDER_PARTY_MEMBER: PartyMember = {
+  id: 'sol',
+  name: 'Sol Reed',
+  hp: 50,
+  maxHp: 50,
+  atk: 12,
+  def: 5,
+  focus: 50,
+  genre: Genre.Jazz,
+  moves: [{ kind: 'attack', moveId: 'brass-burst', name: 'Brass Burst', power: 30 }],
+};
 
-function makePlaceholderDefender(): Combatant {
-  return { id: 'mook', name: 'Hollow Streetlamp', hp: 30, maxHp: 30, atk: 8, def: 3, focus: 0 };
-}
+const PLACEHOLDER_ENEMY: Combatant & { genre: Genre } = {
+  id: 'hollow-streetlamp',
+  name: 'Hollow Streetlamp',
+  hp: 30,
+  maxHp: 30,
+  atk: 8,
+  def: 3,
+  focus: 0,
+  genre: Genre.Discord,
+};
+
+const PLACEHOLDER_ENCOUNTER: EncounterSpec = {
+  mode: 'normal',
+  bpm: 120,
+  soundId: 'battle-placeholder',
+  enemy: PLACEHOLDER_ENEMY,
+};
 
 export interface GameOptions {
   readonly renderer?: Renderer;
@@ -140,8 +163,8 @@ export class Game {
           input: this.input,
           musicClock: this.musicClock,
           textbox: new Textbox({ text: PLACEHOLDER_BATTLE_PROMPT }),
-          attacker: makePlaceholderAttacker(),
-          defender: makePlaceholderDefender(),
+          party: [PLACEHOLDER_PARTY_MEMBER],
+          encounter: PLACEHOLDER_ENCOUNTER,
           rng: this.#rng,
           onComplete: (outcome) => {
             this.router.transition(outcome);

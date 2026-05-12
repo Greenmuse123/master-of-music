@@ -73,3 +73,44 @@ export type BattleEvent =
 
 /** Battle outcome surfaced to the scene router. */
 export type BattleOutcome = 'victory' | 'defeat';
+
+/* ---------------------------------------------------------------------------
+ * Phase-2 additions (append-only).
+ *
+ * Imports are local in the modules that consume `PartyMember` / `EncounterSpec`;
+ * `Genre` and `BossScript` are referenced via the imports below so this file
+ * stays the single source of the combat type vocabulary.
+ * --------------------------------------------------------------------------*/
+
+import type { Genre } from './genres';
+import type { BossScript } from './boss-types';
+
+/**
+ * A controllable combatant in the active party. Extends the minimal Combatant
+ * snapshot with a {@link Genre} for type-table lookup and a fixed list of
+ * available attack moves. Phase 2 ships 1-3 members; only the first is the
+ * active attacker (Phase 3 expands to multi-member turn order per docs/04 §2).
+ */
+export interface PartyMember extends Combatant {
+  readonly genre: Genre;
+  readonly moves: readonly MoveAction[];
+}
+
+/** Whether the encounter uses the scripted boss runner or a plain mook fight. */
+export type BattleMode = 'normal' | 'boss';
+
+/**
+ * The full encounter declaration consumed by `BattleScene`. `bossScript` MUST
+ * be set iff `mode === 'boss'`; the scene asserts the invariant on `enter()`.
+ */
+export interface EncounterSpec {
+  readonly mode: BattleMode;
+  /** BPM fed into `MusicClock.start()` on scene enter. Must be > 0. */
+  readonly bpm: number;
+  /** Identifier passed to `MusicClock.start()`. Placeholder is acceptable in Phase 2. */
+  readonly soundId: string;
+  /** The enemy combatant + their genre for type-table lookup. */
+  readonly enemy: Combatant & { readonly genre: Genre };
+  /** Bespoke phase script for boss encounters. Required iff `mode === 'boss'`. */
+  readonly bossScript?: BossScript;
+}
