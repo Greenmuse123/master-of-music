@@ -1,0 +1,31 @@
+{
+  "goal": "Implement the parry mechanic per docs/04-COMBAT_SYSTEM.md section 3.6. Pure function `evaluateParry(nowMs, attackCueMs, focus)` returns a `ParryResult` describing whether the defender parried the incoming cue, how much damage is mitigated, and whether a cue was stolen (criticals only). Surface shape matches the rhythm-window family so the battle scene can reuse its rendering hooks.",
+  "files": [
+    "src/game/combat/parry.ts",
+    "src/game/combat/parry.test.ts"
+  ],
+  "constraints": [
+    "Pure function. No imports outside `./types` (RhythmQuality is allowed) and TypeScript built-ins.",
+    "Signature: `evaluateParry(nowMs: number, attackCueMs: number, focus: number): ParryResult`.",
+    "Define and export `ParryResult` as `{ quality: 'critical' | 'perfect' | 'good' | 'miss', incomingDamageMul: number, stoleCue: boolean, deltaMs: number }`. (Parry doesn't expose 'off' — it collapses to 'miss'.)",
+    "Windows (delta = |nowMs - attackCueMs|): critical ≤30ms, perfect ≤80ms, good ≤160ms, else miss. Note critical is TIGHTER than attack-side critical (40ms in 08); parry is harder by design per docs/04 §3.6.",
+    "Focus widening identical to rhythm-window: tolerance × (1 + min(focus,100)/200), max +50%.",
+    "Damage mitigation: critical=×0.0 (full negate), perfect=×0.3, good=×0.6, miss=×1.0.",
+    "`stoleCue` is true ONLY on critical parry — caller (battle-scene) uses this to add a bonus cue to its NEXT attack turn per docs/04 §3.6.",
+    "No mutation, no external state, JSDoc references docs/04 §3.6."
+  ],
+  "acceptance": [
+    "Test covers every boundary (±1ms), every quality, focus=0 and focus=100.",
+    "Test verifies critical parry with focus=100 expands the window to ≤45ms.",
+    "Test verifies stoleCue is true on critical, false on every other quality.",
+    "100% statement and branch coverage."
+  ],
+  "verification": [
+    "npm run lint --silent",
+    "npm run typecheck --silent",
+    "npm run test --silent -- src/game/combat/parry"
+  ],
+  "sandbox": "workspace-write",
+  "invokedBy": "master-of-music orchestrator (Phase 2)",
+  "timeoutMs": 300000
+}

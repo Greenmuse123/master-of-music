@@ -1,0 +1,33 @@
+{
+  "goal": "Implement a boss-phase script runner per docs/04-COMBAT_SYSTEM.md section 5. A small state machine advances a boss through declarative phases (intro, execution, vulnerable, transition). The runner reads a phase script and emits events the battle scene consumes. No graphics, no audio — pure logic + events.",
+  "files": [
+    "src/game/combat/boss-phase.ts",
+    "src/game/combat/boss-phase.test.ts",
+    "src/game/combat/boss-types.ts"
+  ],
+  "constraints": [
+    "Define types in `boss-types.ts`: `BossPhase = { id: string; patternIntroBeats: number; patternBeats: number[]; vulnerableBeats: number; hpThreshold?: number }`. `BossScript = { id: string; phases: BossPhase[]; finalDefeatBeats: number }`. `BossEvent = { kind: 'phase-enter'; phaseId: string } | { kind: 'cue'; beatIndex: number } | { kind: 'vulnerable'; remainingBeats: number } | { kind: 'phase-exit'; phaseId: string } | { kind: 'defeated' }`.",
+    "Class `BossPhaseRunner` constructor takes `{ script: BossScript; onEvent: (e: BossEvent) => void }`.",
+    "API: `start(): void` (emits phase-enter for phases[0]); `tick(beat: number, bossHpFraction: number): void` (drives cues, vulnerable windows, and phase transitions); `currentPhaseId(): string`; `isFinished(): boolean`.",
+    "Transition rules: a phase advances when (a) bossHpFraction drops below `phase.hpThreshold` (if set), OR (b) the boss's dissonance peaked during this phase (signaled by a separate `triggerStutterAdvance()` method called by the battle scene). Last phase plus defeat -> emit `defeated`.",
+    "Pure logic. No setTimeout, no Math.random, no Date.now. `beat` and `bossHpFraction` are pushed in from the caller.",
+    "Idempotent `start()` — calling twice is a no-op after the first call.",
+    "JSDoc references docs/04 section 5."
+  ],
+  "acceptance": [
+    "Test: a 3-phase script with hpThresholds [0.66, 0.33] advances through all three when hp drops past each threshold; events fire in order phase-enter -> ... -> phase-exit -> phase-enter -> ... -> defeated.",
+    "Test: pattern beats emit `cue` events at the right beat indices for the current phase.",
+    "Test: triggerStutterAdvance forces the next phase even without hp drop.",
+    "Test: vulnerable window emits `vulnerable` event with remainingBeats counting down.",
+    "Test: calling `start()` twice does not re-emit phase-enter.",
+    "100% statement and branch coverage."
+  ],
+  "verification": [
+    "npm run lint --silent",
+    "npm run typecheck --silent",
+    "npm run test --silent -- src/game/combat/boss-phase"
+  ],
+  "sandbox": "workspace-write",
+  "invokedBy": "master-of-music orchestrator (Phase 2)",
+  "timeoutMs": 600000
+}

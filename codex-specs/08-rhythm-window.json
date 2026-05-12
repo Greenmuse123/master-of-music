@@ -1,17 +1,20 @@
 {
-  "goal": "Implement the pure function `evaluateRhythmHit(nowMs, targetMs, focus)` that returns one of {critical, perfect, good, off, miss} per the windows in docs/04-COMBAT_SYSTEM.md section 3.3, applying the focus widening rule and returning damage/RES modifiers.",
+  "goal": "Upgrade the Phase-1 placeholder rhythm-window to the full 5-band evaluator per docs/04 §3.3. Ships `src/game/combat/rhythm-window.ts` (NEW file alongside the existing `rhythm-window-placeholder.ts`) with the same `RhythmResult` shape AGENT-combat already shipped, but with all 5 quality bands (`critical | perfect | good | off | miss`). Widens the `RhythmQuality` union in `src/game/combat/types.ts` to include `'critical'` and `'off'`; existing 3-band placeholder callers continue to typecheck because their narrower union is a subset.",
   "files": [
     "src/game/combat/rhythm-window.ts",
-    "src/game/combat/rhythm-window.test.ts"
+    "src/game/combat/rhythm-window.test.ts",
+    "src/game/combat/types.ts"
   ],
   "constraints": [
     "Pure function. No imports beyond local types.",
     "Signature: `evaluateRhythmHit(nowMs: number, targetMs: number, focus: number): RhythmResult`.",
-    "RhythmResult = { quality: RhythmQuality, damageMul: number, resReturn: number, deltaMs: number }.",
+    "RhythmResult shape is FIXED to what AGENT-combat already shipped in rhythm-window-placeholder.ts: `{ quality: RhythmQuality, damageMul: number, resReturn: number, deltaMs: number }`. Do not change the shape.",
+    "Update `src/game/combat/types.ts` `RhythmQuality` union from `'perfect' | 'good' | 'miss'` to `'critical' | 'perfect' | 'good' | 'off' | 'miss'`. Append-only — keep the existing three values.",
     "Windows (delta = |nowMs - targetMs|): critical ≤40ms, perfect ≤80ms, good ≤160ms, off ≤300ms, else miss.",
     "Focus widening: each window's tolerance is multiplied by (1 + min(focus,100)/200), max +50%.",
-    "Damage and RES modifiers exactly as in the table.",
-    "Document the function with a JSDoc reference to docs/04-COMBAT_SYSTEM.md."
+    "Damage and RES modifiers per docs/04 section 3.3 table: critical=×2.0/+6 RES, perfect=×1.5/+4, good=×1.0/+2, off=×0.6/+0, miss=×0.2/+0 (and miss builds dissonance, handled by caller).",
+    "Document the function with a JSDoc reference to docs/04-COMBAT_SYSTEM.md §3.3.",
+    "Do NOT delete or modify `rhythm-window-placeholder.ts` — orchestrator handles caller migration + placeholder removal post-spec."
   ],
   "acceptance": [
     "Test covers every boundary (±1ms each), every quality level, focus=0 and focus=100 cases.",

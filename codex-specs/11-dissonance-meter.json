@@ -1,0 +1,32 @@
+{
+  "goal": "Implement the dissonance meter per docs/04-COMBAT_SYSTEM.md section 3.4. A small stateful class tracks dissonance accumulation, exposes a normalized 0-1 reading, and reports when the holder is 'stuttered' — i.e. dissonance is at max, which lets the OPPONENT enter a vulnerable phase for one round. Used by both regular combatants and the boss.",
+  "files": [
+    "src/game/combat/dissonance-meter.ts",
+    "src/game/combat/dissonance-meter.test.ts"
+  ],
+  "constraints": [
+    "Class `DissonanceMeter` with constructor options `{ max?: number; stutterDurationRounds?: number }`. Defaults: max = 100, stutterDurationRounds = 1.",
+    "API: `addFromQuality(quality: RhythmQuality): void` — adds points per the documented table; `current(): number` (0..max); `normalized(): number` (0..1); `isStuttered(): boolean`; `tickRound(): void` — call at end-of-round to decrement remaining stutter rounds; `reset(): void`.",
+    "Accumulation table (additive): miss +20, off +10, good 0, perfect -5, critical -10. Floor at 0; ceiling at max.",
+    "When `current() >= max`, the meter transitions into stuttered state for `stutterDurationRounds` rounds. While stuttered: `addFromQuality` is a no-op and `current()` decays by max/stutterDurationRounds per tickRound. After the final tickRound while stuttered, the meter resets (current=0, stuttered=false).",
+    "Pure logic — no DOM, no timers, no Math.random.",
+    "Import `RhythmQuality` from `./types` (must include all 5 bands; spec 08 widens it).",
+    "JSDoc references docs/04 section 3.4."
+  ],
+  "acceptance": [
+    "Test: fresh meter has current=0, isStuttered=false.",
+    "Test: 5 consecutive miss results lift current to 100 (exact) and isStuttered flips to true.",
+    "Test: while stuttered, addFromQuality calls are no-ops.",
+    "Test: tickRound decays correctly; one round after stuttering (with default stutterDurationRounds=1), meter is back to 0 and isStuttered=false.",
+    "Test: critical and perfect drop the meter; floor at 0 is respected.",
+    "100% statement and branch coverage."
+  ],
+  "verification": [
+    "npm run lint --silent",
+    "npm run typecheck --silent",
+    "npm run test --silent -- src/game/combat/dissonance-meter"
+  ],
+  "sandbox": "workspace-write",
+  "invokedBy": "master-of-music orchestrator (Phase 2)",
+  "timeoutMs": 300000
+}
