@@ -3,49 +3,49 @@ import type { InputManager } from '../engine/input/input-manager';
 import type { Renderer } from '../engine/render/renderer';
 import type { FrameStep, Scene } from '../engine/scene/scene';
 
-export type TitleSceneEvent = 'confirm';
+export type GameOverEvent = 'confirm';
 
-export interface TitleSceneOptions {
-  readonly renderer?: Renderer;
-  readonly input?: Pick<InputManager, 'pressed'>;
-  readonly onEvent?: (event: TitleSceneEvent) => void;
+export interface GameOverSceneOptions {
+  readonly renderer: Renderer;
+  readonly input: Pick<InputManager, 'pressed'>;
+  readonly onEvent: (event: GameOverEvent) => void;
 }
 
-const TITLE_TEXT = 'MASTER OF MUSIC';
-const PROMPT_TEXT = 'Press Confirm to start';
+const TITLE_TEXT = 'GAME OVER';
+const PROMPT_TEXT = 'Press Confirm to return to title';
 const TITLE_Y = Math.trunc(RENDER_H / 2) - 12;
 const PROMPT_Y = Math.trunc(RENDER_H / 2) + 12;
 
-export class TitleScene implements Scene {
-  readonly #renderer: Renderer | null;
-  readonly #input: Pick<InputManager, 'pressed'> | null;
-  readonly #onEvent: ((event: TitleSceneEvent) => void) | null;
-  entered = false;
+export class GameOverScene implements Scene {
+  readonly #renderer: Renderer;
+  readonly #input: Pick<InputManager, 'pressed'>;
+  readonly #onEvent: (event: GameOverEvent) => void;
+  #active = false;
 
-  constructor(options: TitleSceneOptions = {}) {
-    this.#renderer = options.renderer ?? null;
-    this.#input = options.input ?? null;
-    this.#onEvent = options.onEvent ?? null;
+  constructor(options: GameOverSceneOptions) {
+    this.#renderer = options.renderer;
+    this.#input = options.input;
+    this.#onEvent = options.onEvent;
   }
 
-  get renderer(): Renderer | null {
+  get renderer(): Renderer {
     return this.#renderer;
   }
 
   enter(_prev?: Scene): void {
-    this.entered = true;
+    this.#active = true;
   }
 
   exit(_next?: Scene): void {
-    this.entered = false;
+    this.#active = false;
   }
 
   update(_step: FrameStep): void {
-    if (!this.entered || this.#input === null) {
+    if (!this.#active) {
       return;
     }
     if (this.#input.pressed('confirm')) {
-      this.#onEvent?.('confirm');
+      this.#onEvent('confirm');
     }
   }
 
