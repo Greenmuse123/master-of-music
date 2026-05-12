@@ -20,9 +20,11 @@
     "Test: msUntilBeat() returns correct value for sub-beat queries."
   ],
   "verification": [
-    "bash -c 'npm run lint --silent && npm run typecheck --silent && npm run test --silent -- src/engine/audio'"
+    "npm run lint --silent",
+    "npm run typecheck --silent",
+    "npm run test --silent -- src/engine/audio"
   ],
-  "sandbox": "read-write",
+  "sandbox": "workspace-write",
   "invokedBy": "master-of-music orchestrator (Phase 1)",
   "timeoutMs": 600000
 }

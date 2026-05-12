@@ -19,9 +19,11 @@
     "Snapshot test of the full table for future change detection."
   ],
   "verification": [
-    "bash -c 'npm run lint --silent && npm run typecheck --silent && npm run test --silent -- src/game/combat/type-table'"
+    "npm run lint --silent",
+    "npm run typecheck --silent",
+    "npm run test --silent -- src/game/combat/type-table"
   ],
-  "sandbox": "read-write",
+  "sandbox": "workspace-write",
   "invokedBy": "master-of-music orchestrator (Phase 2)",
   "timeoutMs": 300000
 }

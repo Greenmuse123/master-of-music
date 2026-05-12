@@ -22,9 +22,11 @@
     "Remap test verifies binding override is reflected in `pressed()` immediately."
   ],
   "verification": [
-    "bash -c 'npm run lint --silent && npm run typecheck --silent && npm run test --silent -- src/engine/input'"
+    "npm run lint --silent",
+    "npm run typecheck --silent",
+    "npm run test --silent -- src/engine/input"
   ],
-  "sandbox": "read-write",
+  "sandbox": "workspace-write",
   "invokedBy": "master-of-music orchestrator (Phase 1)",
   "timeoutMs": 600000
 }

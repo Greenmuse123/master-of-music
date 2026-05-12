@@ -20,9 +20,11 @@
     "No mutation, no external state."
   ],
   "verification": [
-    "bash -c 'npm run lint --silent && npm run typecheck --silent && npm run test --silent -- src/game/combat/rhythm-window'"
+    "npm run lint --silent",
+    "npm run typecheck --silent",
+    "npm run test --silent -- src/game/combat/rhythm-window"
   ],
-  "sandbox": "read-write",
+  "sandbox": "workspace-write",
   "invokedBy": "master-of-music orchestrator (Phase 2)",
   "timeoutMs": 300000
 }

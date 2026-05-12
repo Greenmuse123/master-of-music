@@ -30,9 +30,11 @@
     "Camera shake test verifies decay reaches < 0.1 within the configured duration."
   ],
   "verification": [
-    "bash -c 'npm run lint --silent && npm run typecheck --silent && npm run test --silent -- src/engine/render'"
+    "npm run lint --silent",
+    "npm run typecheck --silent",
+    "npm run test --silent -- src/engine/render"
   ],
-  "sandbox": "read-write",
+  "sandbox": "workspace-write",
   "invokedBy": "master-of-music orchestrator (Phase 1)",
   "timeoutMs": 900000
 }
