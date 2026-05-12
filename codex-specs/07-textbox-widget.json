@@ -1,0 +1,35 @@
+{
+  "goal": "Implement the dialogue textbox UI widget per docs/03-TECHNICAL_ARCHITECTURE.md section 3 (src/ui/textbox.ts) and docs/06-SUBAGENT_ORCHESTRATION.md Wave 1. The widget renders a bordered text panel at the bottom of the 480x270 canvas, types characters at a configurable speed, supports an optional portrait slot on the left, and advances on a confirm action. Pure logic + ctx-call assertions; no real font assets in this phase.",
+  "files": [
+    "src/ui/widget.ts",
+    "src/ui/widget.test.ts",
+    "src/ui/textbox.ts",
+    "src/ui/textbox.test.ts"
+  ],
+  "constraints": [
+    "Widget is a minimal base interface: { update(dt: number): void; render(ctx: CanvasRenderingContext2D): void; }.",
+    "Textbox API: `new Textbox({ text: string, charsPerSec?: number, portrait?: HTMLImageElement | null })`. Defaults: charsPerSec = 30, portrait = null.",
+    "State machine: 'typing' | 'idle' | 'done'. Typing reveals characters; pressing confirm fast-forwards typing OR advances to 'done' if already idle.",
+    "Layout: panel is 480x80, anchored to y=190 (bottom of 480x270). 4px outer border, 4px inner padding. Portrait slot is 64x64 in the left padding when provided; text body is the remaining rect.",
+    "Wrapping: word-wrap by space; if a word exceeds the line width, break by character. Use a bitmap-font-friendly metric of 6 pixels per char (placeholder until a real font ships).",
+    "API methods: `update(dtSec: number)`, `render(ctx)`, `confirm(): 'fast-forward' | 'advance' | 'noop'`, `isDone(): boolean`.",
+    "All draw positions snapped to integer pixels. No imageSmoothingEnabled changes.",
+    "Tests use the same stubbed CanvasRenderingContext2D pattern as src/engine/render/renderer.test.ts (recorded-calls factory). Do not introduce a new stub.",
+    "No new dependencies."
+  ],
+  "acceptance": [
+    "100% statement coverage on widget.ts and textbox.ts.",
+    "Test verifies typing reveals 1 character per (1/charsPerSec) seconds, with 1ms tolerance.",
+    "Test verifies `confirm()` returns 'fast-forward' mid-typing and 'advance' when state is 'idle'.",
+    "Test verifies `render()` invokes ctx.fillRect for the panel background and ctx.fillText for at least the typed substring.",
+    "Test verifies word-wrap: a 480-char string of single-space-separated 5-char words wraps into multiple visible lines without breaking mid-word."
+  ],
+  "verification": [
+    "npm run lint --silent",
+    "npm run typecheck --silent",
+    "npm run test --silent -- src/ui"
+  ],
+  "sandbox": "workspace-write",
+  "invokedBy": "master-of-music orchestrator (Phase 1)",
+  "timeoutMs": 600000
+}

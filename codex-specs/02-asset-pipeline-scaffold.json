@@ -17,7 +17,8 @@
     "tools/asset-pipeline/jobs/_palettes/jazz.json",
     "tools/asset-pipeline/README.md",
     "package.json",
-    "package-lock.json"
+    "package-lock.json",
+    ".eslintrc.cjs"
   ],
   "constraints": [
     "Use the project's existing TypeScript setup; treat tools/asset-pipeline as a workspace package.",
@@ -28,7 +29,9 @@
     "palette-check returns {ok: true} only if every pixel is in the loaded palette JSON.",
     "README explains the pipeline at the level of one developer reading it for the first time.",
     "Modify the root package.json to: (a) add a `workspaces` field including `tools/asset-pipeline`; (b) add an `assets` script that delegates to the tool's CLI (e.g., `node tools/asset-pipeline/dist/cli.js` or `tsx tools/asset-pipeline/src/cli.ts`).",
-    "Run `npm install` at root as part of execution so the workspace is hoisted before reporting completion. The wrapper's verification[] does not run install; you must."
+    "Update the root .eslintrc.cjs `parserOptions.project` to an array of both tsconfigs: `['./tsconfig.json', './tools/asset-pipeline/tsconfig.json']`. Without this, ESLint cannot parse the new workspace's TypeScript files and `npm run lint` will fail at the project's exit gate.",
+    "Run `npm install` at root as part of execution so the workspace is hoisted before reporting completion. The wrapper's verification[] does not run install; you must.",
+    "Stub files (procedural provider, manifest, palette-check, etc.) must be lint-clean: prefix unused parameters with `_` per the argsIgnorePattern, and do not mark functions `async` unless they actually `await` something."
   ],
   "acceptance": [
     "`npm install` at root installs the workspace.",
@@ -38,6 +41,7 @@
     "All tests pass via root `npm run test`."
   ],
   "verification": [
+    "npm run lint --silent",
     "npm run typecheck --silent",
     "npm run test --silent"
   ],
