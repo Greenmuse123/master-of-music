@@ -1,8 +1,18 @@
 import { ASPECT_RATIO, RENDER_H, RENDER_W } from '../../config/constants';
+import { RENDER_LAYERS, type RenderLayer } from './layers';
+import type { Sprite } from './sprite';
+
+interface DrawCommand {
+  readonly layer: RenderLayer;
+  readonly sprite: Sprite;
+  readonly x: number;
+  readonly y: number;
+}
 
 export class Renderer {
   readonly canvas: HTMLCanvasElement;
   readonly ctx: CanvasRenderingContext2D;
+  readonly #queue = new Map<RenderLayer, DrawCommand[]>();
 
   constructor(canvas: HTMLCanvasElement = document.createElement('canvas')) {
     this.canvas = canvas;
@@ -19,6 +29,10 @@ export class Renderer {
 
     this.ctx = ctx;
     this.ctx.imageSmoothingEnabled = false;
+
+    for (const layer of RENDER_LAYERS) {
+      this.#queue.set(layer, []);
+    }
   }
 
   mount(parent: HTMLElement): void {
@@ -37,11 +51,32 @@ export class Renderer {
     this.ctx.fillRect(0, 0, RENDER_W, RENDER_H);
   }
 
+  drawSprite(sprite: Sprite, x: number, y: number, layer: RenderLayer): void {
+    this.#queue.get(layer)!.push({
+      layer,
+      sprite,
+      x: Math.round(x),
+      y: Math.round(y),
+    });
+  }
+
   drawText(text: string, x: number, y: number): void {
     this.ctx.fillStyle = '#fff';
     this.ctx.font = '16px monospace';
     this.ctx.textBaseline = 'top';
     this.ctx.fillText(text, Math.trunc(x), Math.trunc(y));
+  }
+
+  flush(): void {
+    for (const layer of RENDER_LAYERS) {
+      const commands = this.#queue.get(layer)!;
+
+      for (const command of commands) {
+        command.sprite.draw(this.ctx, command.x, command.y);
+      }
+
+      commands.length = 0;
+    }
   }
 
   readonly resizeToViewport = (): void => {
