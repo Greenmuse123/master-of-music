@@ -1,0 +1,34 @@
+{
+  "goal": "Upgrade tilemap rendering from solid-color rects to atlas-based sprite rendering. Adds an `AtlasTilemap` class that reads a Tiled-style JSON map plus a sprite atlas and emits drawSprite calls to the existing Renderer. The Phase-1 placeholder Tilemap stays for tests; this is the production renderer path.",
+  "files": [
+    "src/engine/render/atlas-tilemap.ts",
+    "src/engine/render/atlas-tilemap.test.ts"
+  ],
+  "constraints": [
+    "Class `AtlasTilemap` constructor: `{ map: TilemapData, atlas: Atlas, layer?: RenderLayer }`. Default layer = 'world'.",
+    "Map shape (subset of Tiled JSON): `TilemapData = { width: number; height: number; tileSize: number; layers: TileLayer[] }`. `TileLayer = { name: string; data: number[]; visible?: boolean }`. Each `data[i]` is a tile index into the atlas frames; 0 = empty (no draw).",
+    "Atlas frame lookup: tile index N maps to the atlas frame named `tile-${N}` (a convention; documented in JSDoc). Tile index 0 is reserved for empty.",
+    "API: `render(renderer: Renderer, camera?: Camera): void` queues drawSprite calls for every non-empty visible tile within the camera viewport (or all tiles if no camera).",
+    "Frustum culling: if a camera is provided, only emit tiles whose pixel rect intersects the camera's view rect. (Camera has a `position` and the renderer has RENDER_W/RENDER_H constants.)",
+    "All draw positions snapped to integer pixels via `Math.round`.",
+    "Test stub: pass a fake atlas (Map<string, Sprite>) and a fake Renderer with a recording drawSprite. Assert the queued draws match the expected (layer, frame, x, y) tuples for both with-camera and no-camera paths.",
+    "Imports: `Renderer`, `Camera`, `Atlas`, `Sprite` from `./` neighbors. `RenderLayer` from `./layers`.",
+    "No new dependencies."
+  ],
+  "acceptance": [
+    "Test: a 3x3 map with tiles [0,1,0; 1,2,1; 0,1,0] queues exactly 5 drawSprite calls when no camera is given.",
+    "Test: same map with a camera positioned so only the top-left quadrant is in view queues 2 drawSprite calls (frustum cull).",
+    "Test: an invisible layer is skipped entirely.",
+    "Test: tile index 0 is never drawn.",
+    "Test: empty atlas frame for an index throws a clear error at render time.",
+    "100% statement coverage on atlas-tilemap.ts."
+  ],
+  "verification": [
+    "npm run lint --silent",
+    "npm run typecheck --silent",
+    "npm run test --silent -- src/engine/render/atlas-tilemap"
+  ],
+  "sandbox": "workspace-write",
+  "invokedBy": "master-of-music orchestrator (Phase 3)",
+  "timeoutMs": 600000
+}

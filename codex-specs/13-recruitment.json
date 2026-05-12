@@ -1,0 +1,32 @@
+{
+  "goal": "Implement the recruitment check per docs/04-COMBAT_SYSTEM.md section 6. Pure function `evaluateRecruitmentAttempt(opts)` decides whether the player's recruit attempt against an enemy succeeds, given (a) enemy hp fraction, (b) the genre of the signal the player played, (c) whether the dialogue prompt was passed. Used by BattleScene to optionally end a battle in a `recruited` outcome instead of `victory` or `defeat`.",
+  "files": [
+    "src/game/combat/recruitment.ts",
+    "src/game/combat/recruitment.test.ts"
+  ],
+  "constraints": [
+    "Pure function. Imports only from `./types` (Combatant + Genre) and `./genres`.",
+    "Signature: `evaluateRecruitmentAttempt(opts: RecruitmentAttempt): RecruitmentResult`.",
+    "Define and export `RecruitmentAttempt = { defender: Combatant; defenderGenre: Genre; defenderPreferredGenre: Genre; hpFraction: number; signalGenre: Genre; dialogueOk: boolean }`.",
+    "Define and export `RecruitmentResult = { kind: 'recruited'; combatantId: string } | { kind: 'rejected'; reason: 'hp-too-high' | 'wrong-genre' | 'dialogue-failed' }`.",
+    "Rule per docs/04 section 6: success iff (a) `hpFraction < 0.25`, AND (b) `signalGenre === defenderPreferredGenre`, AND (c) `dialogueOk === true`. Otherwise return the FIRST failing reason in this order: hp-too-high, wrong-genre, dialogue-failed.",
+    "Pure: no mutation of inputs, no external state, no side effects.",
+    "JSDoc references docs/04-COMBAT_SYSTEM.md section 6 and notes that retreating-not-dying behavior on rejection is the caller's (BattleScene) responsibility — this function only computes the outcome."
+  ],
+  "acceptance": [
+    "Test: all three success conditions met -> { kind: 'recruited', combatantId: defender.id }.",
+    "Test: hp at exactly 0.25 -> hp-too-high (strict < 0.25 boundary).",
+    "Test: hp below 0.25 but wrong genre -> wrong-genre.",
+    "Test: hp + genre correct, dialogue failed -> dialogue-failed.",
+    "Test: multiple failures -> first failing reason wins in the documented order (hp-too-high checked first).",
+    "100% statement and branch coverage."
+  ],
+  "verification": [
+    "npm run lint --silent",
+    "npm run typecheck --silent",
+    "npm run test --silent -- src/game/combat/recruitment"
+  ],
+  "sandbox": "workspace-write",
+  "invokedBy": "master-of-music orchestrator (Phase 3)",
+  "timeoutMs": 300000
+}

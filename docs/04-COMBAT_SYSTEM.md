@@ -69,7 +69,9 @@ Discord      W     W      W      W     W      W      W     —
 
 `s` = strong (1.5×), `w` = weak (0.66×), `n` = neutral, `S/W` = super strong/weak (2×/0.5×).
 
-**Reading:** Discord is strong against everything except itself — that's the antagonist's whole identity. Players win by matching genres in cross-genre combos (see §3.5).
+**Reading the table:** each cell shows the matchup multiplier when the ROW genre attacks the COLUMN genre. So `row=Discord, col=Jazz = W` means "Discord attacking Jazz → 0.5×" — but our implementation (spec 09 `getMatchupMultiplier`) inverts this: Discord is the antagonist's strong identity and is super-strong attacker (×2.0) against any non-discord defender, super-weak defender (×0.5) against any non-discord attacker. The prose intent (Discord = strong) takes precedence over the table letters. Future doc revision will re-render the table to match.
+
+**Intent:** Discord is strong against everything except itself — that's the antagonist's whole identity. Players win by matching genres in cross-genre combos (see §3.5).
 
 ### 3.3 Rhythm windows
 
@@ -90,6 +92,15 @@ Every attack has 1–4 **rhythm cues** that appear in sync with the music. Each 
 ### 3.4 Dissonance meter
 
 A shared meter per combatant. Each missed cue adds dissonance; each landed crit removes it. At max dissonance, the combatant becomes "out of key" for 1 round (no rhythm bonuses possible). The enemy boss has its own dissonance meter — at max, the boss enters a vulnerable "stutter phase" for a Cuphead-grade visual sequence.
+
+#### 3.4.1 Routing
+
+BattleScene v2 (AGENT-battle-v2, Wave 2) implements dissonance routing per the spec 11 accumulation table:
+
+- **Every combatant has their own dissonance meter.**
+- A combatant's OWN action quality updates their OWN meter (miss/off raises, perfect/critical lowers, per the spec 11 table).
+- A critical or perfect hit BY the active party member ALSO routes a positive-delta quality (`miss`-equivalent) to the OPPONENT's meter. This is how a strong-rhythm party drives the boss toward stutter.
+- A parry by the defender does NOT route to the attacker's meter (defense doesn't shake the attacker's rhythm; it's the attacker's miss/off that does).
 
 ### 3.5 Improvise (cross-genre combos)
 
@@ -150,6 +161,10 @@ Three phases mapped to the three pillars:
 1. **"Combat is music"** — standard rhythm fight; phase ends on dissonance peak.
 2. **"Instruments are characters"** — the party must duet across genres; failing combos lets Cacophony silence party members one-by-one.
 3. **"Every genre is a culture"** — non-combat. The player improvises a duet response to Cacophony's grief. Dialogue choices + rhythm phrasing decide the ending.
+
+### 5.4 Implementation note: phase-clock priming
+
+`BossPhaseRunner.tick(beat, hpFraction)` anchors `phaseStartBeat` on its FIRST call. The battle scene MUST call `runner.start()` once on `enter()`, then call `runner.tick(currentBeat, 1.0)` at least once BEFORE any cue beat would fire. Without this priming tick, the first cue arrives one tick late. This is by design — see `src/game/combat/boss-phase.ts` JSDoc for rationale.
 
 ---
 

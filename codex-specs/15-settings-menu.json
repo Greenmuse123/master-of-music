@@ -1,0 +1,35 @@
+{
+  "goal": "Add a Settings scene with volume sliders per audio bus, key remap, and accessibility toggles (relaxed-rhythm, high-contrast, audio-only cues). Reads + writes a `SettingsV1` shape that the SaveV1 store can persist. Implements the Scene interface and routes back to the title via the existing SceneRouter contract (a new 'settings' event variant).",
+  "files": [
+    "src/scenes/settings-scene.ts",
+    "src/scenes/settings-scene.test.ts",
+    "src/engine/save/settings-types.ts",
+    "src/scenes/scene-router.ts"
+  ],
+  "constraints": [
+    "`SettingsV1` (in settings-types.ts) extends the placeholder Phase-1 type: add `relaxedRhythm: boolean`, `highContrast: boolean`, `audioOnlyCues: boolean`. Keep existing `musicVolume: number; sfxVolume: number`. Append-only.",
+    "`SettingsScene` constructor: `{ renderer, input, audio: AudioManager, settings: SettingsV1, onEvent: (event: 'cancel' | 'apply', updated?: SettingsV1) => void }`. The scene mutates a draft copy of `settings`; on `apply` it surfaces the updated copy through `onEvent`.",
+    "UI: a vertical list of rows — Music Volume slider, SFX Volume slider, Relaxed Rhythm toggle, High Contrast toggle, Audio-Only Cues toggle, plus an 'Apply' and 'Back' row. Up/Down navigates rows; Left/Right adjusts sliders (5% step) and flips toggles; Confirm on Apply emits 'apply'; Confirm on Back or Cancel emits 'cancel'.",
+    "Live binding: while a slider row is focused, adjusting it ALSO calls `audio.setBusVolume('music' | 'sfx-attack' | 'sfx-defense' | 'sfx-world' | 'ui' | 'voice', value / 100)` so the change is audible before Apply. (Music slider drives 'music' bus; SFX slider drives the four sfx-* buses + 'voice' + 'ui'.)",
+    "Add `'settings'` to the RouterEvent type union in `src/scenes/scene-router.ts` (APPEND-ONLY edit). Add transitions: `title --settings--> settings`, `settings --cancel--> title`, `settings --apply--> title`.",
+    "Tests use the stubbed ctx pattern; mock InputManager with a queued press API; mock AudioManager (just verify setBusVolume is called with the expected args).",
+    "Strict TS; integer-pixel positioning; underscored unused params."
+  ],
+  "acceptance": [
+    "Test: scene renders 7 rows by default (5 settings + Apply + Back).",
+    "Test: Down-Down navigates from Music to Relaxed Rhythm row.",
+    "Test: Left on a slider row decreases value by 5%; Right increases by 5%; clamped to [0, 100].",
+    "Test: Right on a toggle row flips bool.",
+    "Test: Confirm on Apply emits 'apply' with the updated SettingsV1.",
+    "Test: SceneRouter transitions title -> settings on `transition('settings')`, settings -> title on apply or cancel.",
+    "≥85% coverage on settings-scene.ts; 100% on settings-types.ts; existing scene-router tests still pass after the union widening."
+  ],
+  "verification": [
+    "npm run lint --silent",
+    "npm run typecheck --silent",
+    "npm run test --silent -- src/scenes/settings-scene src/scenes/scene-router"
+  ],
+  "sandbox": "workspace-write",
+  "invokedBy": "master-of-music orchestrator (Phase 3)",
+  "timeoutMs": 600000
+}

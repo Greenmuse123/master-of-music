@@ -1,0 +1,36 @@
+{
+  "goal": "Implement a dialogue tree runner that pages through dialogue lines, supports speaker portraits, branches on player choices, and emits a `finished` event with the choice path the player took. Used by recruitment dialogue, NPC chatter, and cutscenes. Pure runtime — the actual UI rendering reuses the existing Textbox; the runner just owns the dialogue state machine.",
+  "files": [
+    "src/game/dialogue/dialogue-runner.ts",
+    "src/game/dialogue/dialogue-runner.test.ts",
+    "src/game/dialogue/dialogue-types.ts",
+    "src/game/dialogue/parser.ts",
+    "src/game/dialogue/parser.test.ts"
+  ],
+  "constraints": [
+    "Types (in dialogue-types.ts):\n  - `DialogueNode = { id: string; speaker?: string; portrait?: string; lines: string[]; next?: string; choices?: DialogueChoice[] }`.\n  - `DialogueChoice = { id: string; label: string; next: string; flag?: string }`.\n  - `DialogueScript = { id: string; entry: string; nodes: Record<string, DialogueNode> }`.\n  - `DialogueEvent = { kind: 'line'; nodeId: string; speaker?: string; text: string } | { kind: 'choices'; nodeId: string; options: DialogueChoice[] } | { kind: 'finished'; path: string[]; flags: string[] }`.",
+    "Class `DialogueRunner` constructor: `{ script: DialogueScript; onEvent: (e: DialogueEvent) => void }`.",
+    "API: `start(): void` — emits the first node's first line. `advance(): void` — emits the next line in the current node OR a `choices` event if the node has choices and lines are exhausted OR a `line` event for the next node OR `finished`. `select(choiceIndex: number): void` — only valid after a `choices` event; advances to that choice's `next` node and records the choice id in `path` and any `flag` in `flags`.",
+    "Validation: unknown node ids in `next` or `choice.next` should throw at start() with a clear error. Empty `lines` arrays are allowed (then the node is a pure choice node).",
+    "parser.ts: `parseDialogueScript(json: unknown): DialogueScript` — zod-validated. Used to load script JSONs (no real I/O in this spec; pass JSON in directly).",
+    "Pure logic. No DOM, no timers, no Math.random. Idempotent `start()` — calling twice is a no-op.",
+    "Imports allowed: `zod` for parser only. Nothing else."
+  ],
+  "acceptance": [
+    "Test: a 2-node linear script (node A `next` B; B with no next/choices) advances A line-by-line, then B line-by-line, then emits `finished` with `path = ['A', 'B']`.",
+    "Test: a node with choices emits `choices` after its lines run; calling `select(0)` advances to the chosen next node.",
+    "Test: a choice with a `flag` records the flag in the finished event's `flags` array.",
+    "Test: `select` called before a `choices` event throws.",
+    "Test: parser accepts a valid DialogueScript JSON; rejects a script with an unknown `entry` node; rejects a node with `next` pointing at an unknown id.",
+    "Test: calling `start()` twice does not re-emit the first line.",
+    "100% statement coverage on dialogue-runner.ts; 100% on parser.ts."
+  ],
+  "verification": [
+    "npm run lint --silent",
+    "npm run typecheck --silent",
+    "npm run test --silent -- src/game/dialogue"
+  ],
+  "sandbox": "workspace-write",
+  "invokedBy": "master-of-music orchestrator (Phase 3)",
+  "timeoutMs": 600000
+}
