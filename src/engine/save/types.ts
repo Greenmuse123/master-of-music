@@ -1,11 +1,14 @@
+import type { RegionId } from '../../game/overworld/types';
+import type { SettingsV1 } from './settings-types';
+
 export type SaveSlot = 0 | 1 | 2;
 
 export type Facing = 'n' | 's' | 'e' | 'w';
 
-export interface SettingsV1 {
-  readonly musicVolume: number;
-  readonly sfxVolume: number;
-}
+// Canonical SettingsV1 lives in settings-types.ts so the settings scene
+// and the save layer share one type. Re-export here so existing
+// `import { SettingsV1 } from './types'` call sites still work.
+export type { SettingsV1 };
 
 export interface SaveV1 {
   readonly v: 1;
@@ -28,6 +31,8 @@ export interface SaveV1 {
   readonly flags: Readonly<Record<string, boolean | number>>;
   readonly inventory: Readonly<Record<string, number>>;
   readonly settings: SettingsV1;
+  /** Phase-4: the region the player was last exploring. Optional for forward compat. */
+  readonly region?: RegionId;
 }
 
 export interface SaveSummary {

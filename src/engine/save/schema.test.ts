@@ -14,7 +14,13 @@ function makeValidSave(): SaveV1 {
     party: [{ id: 'pete', level: 1, xp: 0, moves: ['blue-note-bend'] }],
     flags: { metMaestro: true, recruits: 1 },
     inventory: { etudeBook: 1 },
-    settings: { musicVolume: 0.8, sfxVolume: 0.8 },
+    settings: {
+      musicVolume: 70,
+      sfxVolume: 80,
+      relaxedRhythm: false,
+      highContrast: false,
+      audioOnlyCues: false,
+    },
   };
 }
 
@@ -118,9 +124,20 @@ describe('saveV1Schema', () => {
     expect(saveV1Schema.safeParse(makeValidSave()).success).toBe(true);
   });
 
-  it('settings schema validates volume bounds', () => {
-    expect(settingsV1Schema.safeParse({ musicVolume: 0.5, sfxVolume: 1 }).success).toBe(true);
-    expect(settingsV1Schema.safeParse({ musicVolume: 1.1, sfxVolume: 0 }).success).toBe(false);
-    expect(settingsV1Schema.safeParse({ musicVolume: -0.1, sfxVolume: 0 }).success).toBe(false);
+  it('settings schema validates volume bounds (0-100) and requires all toggle fields', () => {
+    const valid = {
+      musicVolume: 70,
+      sfxVolume: 100,
+      relaxedRhythm: false,
+      highContrast: true,
+      audioOnlyCues: false,
+    };
+    expect(settingsV1Schema.safeParse(valid).success).toBe(true);
+    expect(settingsV1Schema.safeParse({ ...valid, musicVolume: 101 }).success).toBe(false);
+    expect(settingsV1Schema.safeParse({ ...valid, musicVolume: -1 }).success).toBe(false);
+    // Missing a toggle is invalid.
+    const withoutToggle: Record<string, unknown> = { ...valid };
+    delete withoutToggle['relaxedRhythm'];
+    expect(settingsV1Schema.safeParse(withoutToggle).success).toBe(false);
   });
 });

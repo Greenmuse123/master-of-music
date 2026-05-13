@@ -14,13 +14,16 @@ import { makeDiminuendoEncounter } from './game/encounters/diminuendo';
 import { makeBayouScene } from './game/overworld/regions/bayou';
 import { makeJazzCityScene } from './game/overworld/regions/jazz-city';
 import type { RegionId } from './game/overworld/types';
+import { buildSaveSnapshot } from './game/save-snapshot';
 import { GameOverScene } from './scenes/game-over-scene';
 import { SaveSelectScene } from './scenes/save-select-scene';
 import { SceneRouter, type SceneId } from './scenes/scene-router';
 import { SettingsScene } from './scenes/settings-scene';
 import { TitleScene } from './scenes/title-scene';
-import type { SettingsV1 } from './engine/save/settings-types';
+import type { SaveSlot, SaveV1, SettingsV1 } from './engine/save/types';
 import { Textbox } from './ui/textbox';
+
+const ACTIVE_SLOT: SaveSlot = 0;
 
 const DEFAULT_SETTINGS: SettingsV1 = {
   audioOnlyCues: false,
@@ -120,6 +123,8 @@ export class Game {
   #nextEncounterKind: EncounterKind = 'normal';
   /** In-memory settings shown to the SettingsScene; persisted on apply. */
   #settings: SettingsV1 = { ...DEFAULT_SETTINGS };
+  /** Last SaveV1 written to / loaded from the SaveStore (slot 0). */
+  #latestSave: SaveV1 | null = null;
 
   constructor(options: GameOptions = {}) {
     this.renderer = options.renderer ?? new Renderer();
@@ -143,6 +148,47 @@ export class Game {
 
   async init(): Promise<void> {
     await this.saveStore.init();
+  }
+
+  /**
+   * Best-effort persistence to slot 0. Builds a SaveV1 from the live game
+   * state and writes it. Failures are swallowed so a dev IndexedDB hiccup
+   * never crashes the rAF loop.
+   */
+  #persist(): void {
+    const snapshot = buildSaveSnapshot({
+      existing: this.#latestSave ?? undefined,
+      nowIso: new Date().toISOString(),
+      region: this.#currentRegion,
+      settings: this.#settings,
+      slot: ACTIVE_SLOT,
+    });
+    this.#latestSave = snapshot;
+    void this.saveStore.save(ACTIVE_SLOT, snapshot).catch(() => {
+      // Best-effort: a dev environment without IndexedDB shouldn't crash.
+    });
+  }
+
+  /**
+   * Load the active slot's SaveV1 and restore #settings + #currentRegion.
+   * Used by SaveSelectScene's onEvent handler before transitioning to
+   * overworld. Silent no-op on missing slot or parse failure — the player
+   * starts a fresh session instead.
+   */
+  async #loadSlot(slot: SaveSlot): Promise<void> {
+    try {
+      const save = await this.saveStore.load(slot);
+      if (save === null) {
+        return;
+      }
+      this.#latestSave = save;
+      this.#settings = save.settings;
+      if (save.region !== undefined) {
+        this.#currentRegion = save.region;
+      }
+    } catch {
+      // Corrupted / unreadable save — treat as a fresh session.
+    }
   }
 
   mount(parent: HTMLElement): void {
@@ -200,8 +246,7 @@ export class Game {
           onEvent: (event, updated) => {
             if (event === 'apply' && updated !== undefined) {
               this.#settings = updated;
-              // Persisting to SaveStore is best-effort — failures during dev
-              // (e.g. no IndexedDB) must not crash the game loop.
+              this.#persist();
             }
             this.router.transition(event);
           },
@@ -212,7 +257,17 @@ export class Game {
           renderer: this.renderer,
           input: this.input,
           store: this.saveStore,
-          onEvent: (event) => {
+          onEvent: (event, slotIndex) => {
+            if (event === 'confirm' && slotIndex !== undefined) {
+              // Load before transitioning. The transition is fired inside the
+              // then() so a slow IndexedDB read doesn't strand the player on a
+              // half-loaded overworld — the active scene is still the save
+              // select until load completes.
+              void this.#loadSlot(slotIndex).then(() => {
+                this.router.transition(event);
+              });
+              return;
+            }
             this.router.transition(event);
           },
         });
@@ -229,6 +284,7 @@ export class Game {
             this.router.transition('encounter');
           } else if (event.kind === 'region-change') {
             this.#currentRegion = event.targetRegion;
+            this.#persist();
             this.#activeScene.exit();
             this.#activeScene = this.#makeScene('overworld');
             this.#activeScene.enter();

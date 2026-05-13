@@ -17,7 +17,13 @@ function makeSave(slot: SaveSlot, overrides: Partial<SaveV1> = {}): SaveV1 {
     party: [{ id: 'pete', level: 1, xp: 0, moves: ['blue-note-bend'] }],
     flags: { metMaestro: true },
     inventory: { etudeBook: 1 },
-    settings: { musicVolume: 0.8, sfxVolume: 0.8 },
+    settings: {
+      musicVolume: 70,
+      sfxVolume: 80,
+      relaxedRhythm: false,
+      highContrast: false,
+      audioOnlyCues: false,
+    },
     ...overrides,
   };
 }
