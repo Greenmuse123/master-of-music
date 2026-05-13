@@ -3,6 +3,7 @@
   "enemyId": "diminuendo",
   "bpm": 90,
   "soundId": "boss-diminuendo",
+  "recruitDialogueId": "diminuendo-defeat",
   "bossScript": {
     "id": "diminuendo",
     "finalDefeatBeats": 8,

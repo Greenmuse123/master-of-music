@@ -42,6 +42,12 @@ import { attemptRecruit as runRecruitmentFlow } from './recruitment-flow';
 import type { RecruitmentResult } from './recruitment';
 import { getMatchupMultiplier } from './type-table';
 import type { Genre } from './genres';
+import { DialogueRunner } from '../dialogue/dialogue-runner';
+import type {
+  DialogueChoice,
+  DialogueEvent,
+  DialogueScript,
+} from '../dialogue/dialogue-types';
 import type {
   BattleEvent,
   BattleOutcome,
@@ -78,6 +84,13 @@ export interface BattleSceneOptions {
   readonly encounter: EncounterSpec;
   readonly rng: BattleSceneRng;
   readonly onComplete: BattleSceneComplete;
+  /**
+   * Phase-4: resolves a `recruitDialogueId` on the encounter to a
+   * `DialogueScript` that BattleScene runs when the player presses `recruit`
+   * with the enemy at <25% HP. Returns `null` if the id is unknown — the
+   * scene then falls back to the Phase-3.5 default (dialogueOk = true).
+   */
+  readonly lookupDialogue?: (id: string) => DialogueScript | null;
 }
 
 interface PartyState {
@@ -94,6 +107,7 @@ export class BattleScene implements Scene {
   readonly #rng: BattleSceneRng;
   readonly #onComplete: BattleSceneComplete;
   readonly #partyState: PartyState[];
+  readonly #lookupDialogue: ((id: string) => DialogueScript | null) | undefined;
 
   #enemy: EnemyCombatant;
   #enemyHp: number;
@@ -108,6 +122,11 @@ export class BattleScene implements Scene {
   #entered = false;
   #beatsPerMs = 0;
   #activeIndex = 0;
+  // Phase-4 recruitment-dialogue overlay state.
+  #dialogueRunner: DialogueRunner | null = null;
+  #dialogueLastEvent: DialogueEvent | null = null;
+  #dialogueChoiceIndex = 0;
+  #dialogueFlags: string[] = [];
 
   constructor(options: BattleSceneOptions) {
     if (options.party.length === 0) {
@@ -125,6 +144,7 @@ export class BattleScene implements Scene {
     this.#encounter = options.encounter;
     this.#rng = options.rng;
     this.#onComplete = options.onComplete;
+    this.#lookupDialogue = options.lookupDialogue;
 
     this.#partyState = options.party.map((member) => ({ member, hp: member.hp }));
     this.#enemy = options.encounter.enemy;
@@ -170,12 +190,25 @@ export class BattleScene implements Scene {
     this.#musicClock.stop();
     this.#bossRunner = null;
     this.#pendingParryBeat = null;
+    this.#dialogueRunner = null;
+    this.#dialogueLastEvent = null;
+    this.#dialogueChoiceIndex = 0;
+    this.#dialogueFlags = [];
   }
 
   update(_step: FrameStep): void {
     if (!this.#entered || this.#outcome !== null) {
       return;
     }
+
+    // Dialogue overlay (Phase 4): while a recruitment-dialogue runner is
+    // active, the player can only interact with the dialogue. Combat is
+    // suspended until the runner emits `finished`.
+    if (this.#dialogueRunner !== null) {
+      this.#updateDialogue();
+      return;
+    }
+
 
     this.#lastTurnEvents = [];
 
@@ -201,19 +234,19 @@ export class BattleScene implements Scene {
       this.#performParry();
     }
 
-    // Recruitment trigger: when the enemy is at <25% HP and the player
-    // taps `recruit` (default KeyR), play a signal in the active party
-    // member's genre and run the recruitment-flow evaluator. dialogueOk
-    // defaults to true for Phase 3.5 — Phase 4 replaces this with a real
-    // DialogueRunner-backed prompt sourced from the encounter spec.
-    if (this.#input.pressed('recruit') && this.#outcome === null) {
+    // Recruitment trigger: when the enemy is at <25% HP and the player taps
+    // `recruit` (default KeyR), either start a DialogueRunner (Phase 4 path,
+    // when the encounter spec has `recruitDialogueId` AND `lookupDialogue` can
+    // resolve it) OR fall through to the Phase-3.5 default (dialogueOk=true).
+    if (
+      this.#dialogueRunner === null &&
+      this.#input.pressed('recruit') &&
+      this.#outcome === null
+    ) {
       const maxHp = this.#enemy.maxHp <= 0 ? 1 : this.#enemy.maxHp;
       const hpFraction = Math.max(0, this.#enemyHp / maxHp);
       if (hpFraction < 0.25) {
-        const activeMember = this.#partyState[this.#activeIndex];
-        if (activeMember !== undefined) {
-          this.attemptRecruit(activeMember.member.genre, true);
-        }
+        this.#beginRecruitDialogue();
       } else {
         this.#emit({ kind: 'message', text: 'Too soon. Wear them down first.' });
       }
@@ -330,6 +363,109 @@ export class BattleScene implements Scene {
     }
 
     return result;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Internal: recruitment-dialogue overlay (Phase 4)
+  // ---------------------------------------------------------------------------
+
+  #beginRecruitDialogue(): void {
+    const dialogueId = this.#encounter.recruitDialogueId;
+    const activeMember = this.#partyState[this.#activeIndex];
+
+    if (dialogueId === undefined || this.#lookupDialogue === undefined) {
+      // No dialogue configured — Phase-3.5 default: dialogueOk = true.
+      if (activeMember !== undefined) {
+        this.attemptRecruit(activeMember.member.genre, true);
+      }
+      return;
+    }
+
+    const script = this.#lookupDialogue(dialogueId);
+    if (script === null) {
+      // Lookup failed — fall back to the no-dialogue default rather than
+      // silently denying the player a recruit attempt.
+      if (activeMember !== undefined) {
+        this.attemptRecruit(activeMember.member.genre, true);
+      }
+      return;
+    }
+
+    this.#dialogueFlags = [];
+    this.#dialogueChoiceIndex = 0;
+    const runner = new DialogueRunner({
+      script,
+      onEvent: (event) => this.#handleDialogueEvent(event),
+    });
+    this.#dialogueRunner = runner;
+    runner.start();
+  }
+
+  #handleDialogueEvent(event: DialogueEvent): void {
+    this.#dialogueLastEvent = event;
+    if (event.kind === 'choices') {
+      this.#dialogueChoiceIndex = 0;
+      return;
+    }
+    if (event.kind === 'finished') {
+      this.#dialogueFlags = [...event.flags];
+      this.#dialogueRunner = null;
+      this.#dialogueLastEvent = null;
+      const dialogueOk = this.#dialogueFlags.includes(`recruit-${this.#enemy.id}`);
+      const activeMember = this.#partyState[this.#activeIndex];
+      if (activeMember !== undefined) {
+        this.attemptRecruit(activeMember.member.genre, dialogueOk);
+      }
+    }
+  }
+
+  #updateDialogue(): void {
+    const runner = this.#dialogueRunner;
+    if (runner === null) {
+      return;
+    }
+    const event = this.#dialogueLastEvent;
+
+    if (event?.kind === 'choices') {
+      // Up / down navigates the choice list before confirm fires `select`.
+      const choices = event.options;
+      if (this.#input.pressed('down')) {
+        this.#dialogueChoiceIndex = Math.min(choices.length - 1, this.#dialogueChoiceIndex + 1);
+      } else if (this.#input.pressed('up')) {
+        this.#dialogueChoiceIndex = Math.max(0, this.#dialogueChoiceIndex - 1);
+      }
+      if (this.#input.pressed('confirm')) {
+        runner.select(this.#dialogueChoiceIndex);
+      }
+      return;
+    }
+
+    if (this.#input.pressed('confirm')) {
+      runner.advance();
+    }
+  }
+
+  /** Read-only access to whether a recruitment-dialogue overlay is currently active. */
+  get dialogueActive(): boolean {
+    return this.#dialogueRunner !== null;
+  }
+
+  /** Read-only view of the most recent dialogue event (for UI / tests). */
+  get dialogueEvent(): DialogueEvent | null {
+    return this.#dialogueLastEvent;
+  }
+
+  /** Read-only view of the currently focused choice index (for UI / tests). */
+  get dialogueChoiceIndex(): number {
+    return this.#dialogueChoiceIndex;
+  }
+
+  /** Read-only view of the choice options when the runner is on a `choices` event. */
+  get dialogueChoices(): readonly DialogueChoice[] {
+    if (this.#dialogueLastEvent?.kind === 'choices') {
+      return this.#dialogueLastEvent.options;
+    }
+    return [];
   }
 
   // ---------------------------------------------------------------------------

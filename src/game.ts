@@ -9,6 +9,11 @@ import { mulberry32, type Prng } from './engine/util/rng';
 import { BattleScene } from './game/combat/battle-scene';
 import { Genre } from './game/combat/genres';
 import type { Combatant, EncounterSpec, PartyMember } from './game/combat/types';
+import bayouNpc1Dialogue from './data/dialogue/bayou-npc-1.json';
+import diminuendoDefeatDialogue from './data/dialogue/diminuendo-defeat.json';
+import introDialogue from './data/dialogue/intro.json';
+import { loadAllDialogues } from './game/content/load-dialogue';
+import type { DialogueScript } from './game/dialogue/dialogue-types';
 import { makeBayouMookEncounter } from './game/encounters/bayou-mook';
 import { makeDiminuendoEncounter } from './game/encounters/diminuendo';
 import { makeBayouScene } from './game/overworld/regions/bayou';
@@ -24,6 +29,16 @@ import type { SaveSlot, SaveV1, SettingsV1 } from './engine/save/types';
 import { Textbox } from './ui/textbox';
 
 const ACTIVE_SLOT: SaveSlot = 0;
+
+const DIALOGUE_REGISTRY: Map<string, DialogueScript> = loadAllDialogues([
+  introDialogue,
+  diminuendoDefeatDialogue,
+  bayouNpc1Dialogue,
+]);
+
+function lookupDialogue(id: string): DialogueScript | null {
+  return DIALOGUE_REGISTRY.get(id) ?? null;
+}
 
 const DEFAULT_SETTINGS: SettingsV1 = {
   audioOnlyCues: false,
@@ -305,6 +320,7 @@ export class Game {
           party: [{ ...PLACEHOLDER_PARTY_MEMBER }],
           encounter,
           rng: this.#rng,
+          lookupDialogue,
           onComplete: (outcome) => {
             // Phase-3: a successful recruitment ends the battle without a
             // victory/defeat decision. Treat it as a victory for routing so

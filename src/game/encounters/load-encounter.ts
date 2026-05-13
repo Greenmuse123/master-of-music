@@ -42,6 +42,7 @@ export const BossEncounterSchema = z
     bpm: z.number().positive(),
     soundId: z.string().min(1),
     bossScript: BossScriptSchema,
+    recruitDialogueId: z.string().min(1).optional(),
   })
   .strict();
 
@@ -51,6 +52,7 @@ export const NormalEncounterSchema = z
     enemyId: z.string().min(1),
     bpm: z.number().positive(),
     soundId: z.string().min(1),
+    recruitDialogueId: z.string().min(1).optional(),
   })
   .strict();
 
@@ -98,6 +100,9 @@ export function loadEncounter(json: unknown, opts: LoadEncounterOptions): Encoun
       soundId: parsed.soundId,
       enemy,
       bossScript,
+      ...(parsed.recruitDialogueId !== undefined
+        ? { recruitDialogueId: parsed.recruitDialogueId }
+        : {}),
     };
   }
 
@@ -106,5 +111,8 @@ export function loadEncounter(json: unknown, opts: LoadEncounterOptions): Encoun
     bpm: parsed.bpm,
     soundId: parsed.soundId,
     enemy,
+    ...(parsed.recruitDialogueId !== undefined
+      ? { recruitDialogueId: parsed.recruitDialogueId }
+      : {}),
   };
 }

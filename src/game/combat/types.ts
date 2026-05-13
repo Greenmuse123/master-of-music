@@ -126,4 +126,12 @@ export interface EncounterSpec {
    * Phase 3 addition — append-only, no existing field changes.
    */
   readonly defenderPreferredGenre?: Genre;
+  /**
+   * Dialogue script id the BattleScene runs when the player presses `recruit`
+   * with the enemy at <25% HP. The recruit attempt's `dialogueOk` is derived
+   * from the finished event's `flags.includes('recruit-' + enemy.id)`. Omit
+   * for no-prompt encounters (Phase 3.5 behavior: dialogueOk defaults to true).
+   * Phase 4 addition.
+   */
+  readonly recruitDialogueId?: string;
 }
